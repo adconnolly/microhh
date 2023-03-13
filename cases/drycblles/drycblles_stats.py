@@ -6,20 +6,25 @@ start = 0
 end = 19
 step = 2
 
-stats = nc.Dataset("drycblles_default_0000000.nc", "r")
+stats = nc.Dataset("drycblles.default.0000000.nc", "r")
+
 t = stats.variables["time"][start:end]
 z = stats.variables["z"][:]
 zh = stats.variables["zh"][:]
-st = stats.groups["default"].variables["th"][start:end, :]
-evisct = stats.groups["default"].variables["evisc"][start:end, :]
-u2t = stats.groups["default"].variables["u_2"][start:end, :]
-v2t = stats.groups["default"].variables["v_2"][start:end, :]
-w2t = stats.groups["default"].variables["w_2"][start:end, :]
-s2t = stats.groups["default"].variables["th_2"][start:end, :]
-sturbt = stats.groups["default"].variables["th_w"][start:end, :]
-sdifft = stats.groups["default"].variables["th_diff"][start:end, :]
-sfluxt = stats.groups["default"].variables["th_flux"][start:end, :]
-sgradt = stats.groups["default"].variables["th_grad"][start:end, :]
+
+default = stats.groups["default"]
+thermo = stats.groups["thermo"]
+
+st = thermo.variables["th"][start:end, :]
+evisct = default.variables["evisc"][start:end, :]
+u2t = default.variables["u_2"][start:end, :]
+v2t = default.variables["v_2"][start:end, :]
+w2t = default.variables["w_2"][start:end, :]
+s2t = thermo.variables["th_2"][start:end, :]
+sturbt = thermo.variables["th_w"][start:end, :]
+sdifft = thermo.variables["th_diff"][start:end, :]
+sfluxt = thermo.variables["th_flux"][start:end, :]
+sgradt = thermo.variables["th_grad"][start:end, :]
 
 s = np.mean(st, 0)
 evisc = np.mean(evisct, 0)
