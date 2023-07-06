@@ -46,9 +46,7 @@ class Advec_2i53 : public Advec<TF>
         unsigned long get_time_limit(long unsigned int, double); ///< Get the limit on the time step imposed by the advection scheme.
         double get_cfl(double); ///< Get the CFL number.
 
-        void get_advec_flux(
-                Field3d<TF>&, const Field3d<TF>&,
-                const std::vector<TF>&, const std::vector<TF>&);
+        void get_advec_flux(Field3d<TF>&, const Field3d<TF>&);
         Advection_type get_switch() const { return Advection_type::Advec_2i53; }
 
     private:

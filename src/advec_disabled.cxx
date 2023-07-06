@@ -59,11 +59,7 @@ template<typename TF>
 void Advec_disabled<TF>::exec(Stats<TF>&) {}
 
 template<typename TF>
-void Advec_disabled<TF>::get_advec_flux(
-        Field3d<TF>& advec_flux,
-        const Field3d<TF>& fld,
-        const std::vector<TF>& fld_mean,
-        const std::vector<TF>& w_mean)
+void Advec_disabled<TF>::get_advec_flux(Field3d<TF>& advec_flux, const Field3d<TF>& fld)
 {
     std::fill(advec_flux.fld.begin(), advec_flux.fld.end(), TF(0.));
 }
