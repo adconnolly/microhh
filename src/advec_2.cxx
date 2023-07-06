@@ -203,8 +203,14 @@ namespace
 
     template<typename TF>
     void advec_flux_u(
-            TF* const restrict st, const TF* const restrict s, const TF* const restrict w,
-            const int istart, const int iend, const int jstart, const int jend, const int kstart, const int kend,
+            TF* const restrict st,
+            const TF* const restrict s,
+            const TF* const restrict w,
+            const TF* const restrict s_mean,
+            const TF* const restrict w_mean,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
             const int jj, const int kk)
     {
         const int ii = 1;
@@ -215,14 +221,20 @@ namespace
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
-                    st[ijk] = interp2(w[ijk-ii], w[ijk]) * interp2(s[ijk-kk], s[ijk]);
+                    st[ijk] = (interp2(w[ijk-ii], w[ijk])-w_mean[k]) * interp2((s[ijk-kk]-s_mean[k-1]), (s[ijk]-s_mean[k]));
                 }
     }
 
     template<typename TF>
     void advec_flux_v(
-            TF* const restrict st, const TF* const restrict s, const TF* const restrict w,
-            const int istart, const int iend, const int jstart, const int jend, const int kstart, const int kend,
+            TF* const restrict st,
+            const TF* const restrict s,
+            const TF* const restrict w,
+            const TF* const restrict s_mean,
+            const TF* const restrict w_mean,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
             const int jj, const int kk)
     {
         for (int k=kstart; k<kend+1; ++k)
@@ -231,14 +243,20 @@ namespace
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
-                    st[ijk] = interp2(w[ijk-jj], w[ijk]) * interp2(s[ijk-kk], s[ijk]);
+                    st[ijk] = (interp2(w[ijk-jj], w[ijk])-w_mean[k]) * interp2((s[ijk-kk]-s_mean[k-1]), (s[ijk]-s_mean[k]));
                 }
     }
 
     template<typename TF>
     void advec_flux_s(
-            TF* const restrict st, const TF* const restrict s, const TF* const restrict w,
-            const int istart, const int iend, const int jstart, const int jend, const int kstart, const int kend,
+            TF* const restrict st,
+            const TF* const restrict s,
+            const TF* const restrict w,
+            const TF* const restrict s_mean,
+            const TF* const restrict w_mean,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
             const int jj, const int kk)
     {
         for (int k=kstart; k<kend+1; ++k)
@@ -247,7 +265,7 @@ namespace
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
-                    st[ijk] = w[ijk] * interp2(s[ijk-kk], s[ijk]);
+                    st[ijk] = (w[ijk]-w_mean[k]) * interp2((s[ijk-kk]-s_mean[k-1]), (s[ijk]-s_mean[k]));
                 }
     }
 }
@@ -336,29 +354,51 @@ void Advec_2<TF>::exec(Stats<TF>& stats)
 #endif
 
 template<typename TF>
-void Advec_2<TF>::get_advec_flux(Field3d<TF>& advec_flux, const Field3d<TF>& fld)
+void Advec_2<TF>::get_advec_flux(
+        Field3d<TF>& advec_flux,
+        const Field3d<TF>& fld,
+        const std::vector<TF>& fld_mean,
+        const std::vector<TF>& w_mean)
 {
     auto& gd = grid.get_grid_data();
 
     if (fld.loc == gd.uloc)
     {
         advec_flux_u(
-                advec_flux.fld.data(), fld.fld.data(), fields.mp.at("w")->fld.data(),
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                advec_flux.fld.data(),
+                fld.fld.data(),
+                fields.mp.at("w")->fld.data(),
+                fld_mean.data(),
+                w_mean.data(),
+                gd.istart, gd.iend,
+                gd.jstart, gd.jend,
+                gd.kstart, gd.kend,
                 gd.icells, gd.ijcells);
     }
     else if (fld.loc == gd.vloc)
     {
         advec_flux_v(
-                advec_flux.fld.data(), fld.fld.data(), fields.mp.at("w")->fld.data(),
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                advec_flux.fld.data(),
+                fld.fld.data(),
+                fields.mp.at("w")->fld.data(),
+                fld_mean.data(),
+                w_mean.data(),
+                gd.istart, gd.iend,
+                gd.jstart, gd.jend,
+                gd.kstart, gd.kend,
                 gd.icells, gd.ijcells);
     }
     else if (fld.loc == gd.sloc)
     {
         advec_flux_s(
-                advec_flux.fld.data(), fld.fld.data(), fields.mp.at("w")->fld.data(),
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                advec_flux.fld.data(),
+                fld.fld.data(),
+                fields.mp.at("w")->fld.data(),
+                fld_mean.data(),
+                w_mean.data(),
+                gd.istart, gd.iend,
+                gd.jstart, gd.jend,
+                gd.kstart, gd.kend,
                 gd.icells, gd.ijcells);
     }
     else
