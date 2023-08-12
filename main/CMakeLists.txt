@@ -37,6 +37,9 @@ message(STATUS "Git hash " ${GITHASH})
 add_definitions(-DGITHASH="${GITHASH}")
 
 add_executable(microhh microhh.cxx)
+
+target_link_libraries(microhh "${TORCH_LIBRARIES}")
+
 target_include_directories(microhh PUBLIC ${INCLUDE_DIRS} "../include")
 
 if(USECUDA)
