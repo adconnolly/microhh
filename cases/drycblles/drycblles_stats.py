@@ -3,8 +3,8 @@ import netCDF4 as nc
 import matplotlib.pyplot as plt
 
 start = 0
-end = 19
-step = 2
+end = 2
+step = 1
 
 stats = nc.Dataset('drycblles.default.0000000.nc', 'r')
 default = stats.groups['default']
@@ -40,7 +40,7 @@ sflux = np.mean(sfluxt, axis=0)
 ht = np.zeros(t.size)
 wstart = np.zeros(t.size)
 for n in range(t.size):
-    hindex = np.argmin(abs(sgradt[n, :] - max(sgradt[n, :])))
+    hindex = 4 #np.argmin(abs(sgradt[n, :] - max(sgradt[n, :])))
     ht[n] = z[hindex]
     wstart[n] = ((9.81/300.)*sfluxt[n, 0]*ht[n])**(1./3.)
 
