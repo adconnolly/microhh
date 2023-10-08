@@ -21,5 +21,8 @@
 #
 FILE(GLOB sourcefiles "../src/*.cxx" "../src/*.cu")
 
-add_library(microhhc STATIC ${sourcefiles})
+find_package(Torch REQUIRED)
+
+add_library(microhhc ${sourcefiles})
 target_include_directories(microhhc PUBLIC "../include" "../rte-rrtmgp-cpp/include" "../rte-rrtmgp-cpp/include-kernels" "../rte-rrtmgp-cpp/include_kernels_cuda" ${INCLUDE_DIRS})
+target_link_libraries(microhhc ${TORCH_LIBRARIES})

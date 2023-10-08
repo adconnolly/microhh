@@ -23,7 +23,6 @@
 #include <iostream>
 #include "master.h"
 #include "model.h"
-#include <torch/torch.h>
 
 int main(int argc, char *argv[])
 {
