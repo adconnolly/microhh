@@ -1,0 +1,22 @@
+name: cpptorch
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+  - caffe2
+dependencies:
+  - python #=3.7.9
+  - numpy
+  - scipy
+  - matplotlib
+  - xarray
+  - netcdf4
+  - pytorch
+  - torchvision
+  - torchaudio
+  - cpuonly
+  - caffe2
+  - protobuf
+  - pandas
+  - scikit-learn
+  - pip
