@@ -51,6 +51,7 @@ std::shared_ptr<Budget<TF>> Budget<TF>::factory(
         Thermo<TF>& thermoin, Diff<TF>& diffin, Advec<TF>& advecin, Force<TF>& forcein, Stats<TF>& statsin, Input& inputin)
 {
     std::string swbudget = inputin.get_item<std::string>("budget", "swbudget", "", "0");
+    std::string swspatialorder = inputin.get_item<std::string>("grid", "swspatialorder", "", "0");
 
     // If the stats is disabled, also disable the budget stats.
     if (statsin.get_switch() == false)
@@ -60,11 +61,11 @@ std::shared_ptr<Budget<TF>> Budget<TF>::factory(
         return std::make_shared<Budget_disabled<TF>>(masterin, gridin, fieldsin, thermoin, diffin, advecin, forcein, inputin);
     else if (swbudget == "2")
         return std::make_shared<Budget_2<TF>>(masterin, gridin, fieldsin, thermoin, diffin, advecin, forcein, inputin);
-    else if (swbudget == "4")
+    else if (swbudget == "4" && swspatialorder == "4")
         return std::make_shared<Budget_4<TF>>(masterin, gridin, fieldsin, thermoin, diffin, advecin, forcein, inputin);
     else
     {
-        std::string error_message = swbudget + " is an illegal value for swbudget";
+        std::string error_message = swbudget + " is an illegal value for swbudget, check compatibility with swspatialorder";
         throw std::runtime_error(error_message);
     }
 }
