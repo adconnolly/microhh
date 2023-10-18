@@ -24,6 +24,7 @@
 #include <cmath>
 #include <iostream>
 #include <torch/torch.h>
+#include <torch/script.h>
 
 #include "grid.h"
 #include "fields.h"
@@ -45,6 +46,327 @@ namespace
 
     enum class Surface_model {Enabled, Disabled};
 
+    template <typename TF, Surface_model surface_model>
+    void calc_strain2(
+            TF* const restrict strain2,
+            const TF* const restrict u,
+            const TF* const restrict v,
+            const TF* const restrict w,
+            const TF* const restrict ugradbot,
+            const TF* const restrict vgradbot,
+            const TF* const restrict z,
+            const TF* const restrict dzi,
+            const TF* const restrict dzhi,
+            const TF dxi, const TF dyi,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int jj, const int kk)
+    {
+        const int ii = 1;
+        const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
+
+        const TF zsl = z[kstart];
+
+        // If the wall isn't resolved, calculate du/dz and dv/dz at lowest grid height using MO
+        if (surface_model == Surface_model::Enabled)
+        {
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + kstart*kk;
+
+                    strain2[ijk] = TF(2.)*(
+                            // du/dx + du/dx
+                            + fm::pow2((u[ijk+ii]-u[ijk])*dxi)
+
+                            // dv/dy + dv/dy
+                            + fm::pow2((v[ijk+jj]-v[ijk])*dyi)
+
+                            // dw/dz + dw/dz
+                            + fm::pow2((w[ijk+kk]-w[ijk])*dzi[kstart])
+
+                            // du/dy + dv/dx
+                            + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -jj])*dyi  + (v[ijk      ]-v[ijk-ii   ])*dxi)
+                            + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-jj])*dyi  + (v[ijk+ii   ]-v[ijk      ])*dxi)
+                            + TF(0.125)*fm::pow2((u[ijk   +jj]-u[ijk      ])*dyi  + (v[ijk   +jj]-v[ijk-ii+jj])*dxi)
+                            + TF(0.125)*fm::pow2((u[ijk+ii+jj]-u[ijk+ii   ])*dyi  + (v[ijk+ii+jj]-v[ijk   +jj])*dxi)
+
+                            // du/dz
+                            + TF(0.5) * fm::pow2(ugradbot[ij])
+
+                            // dw/dx
+                            + TF(0.125)*fm::pow2((w[ijk      ]-w[ijk-ii   ])*dxi)
+                            + TF(0.125)*fm::pow2((w[ijk+ii   ]-w[ijk      ])*dxi)
+                            + TF(0.125)*fm::pow2((w[ijk   +kk]-w[ijk-ii+kk])*dxi)
+                            + TF(0.125)*fm::pow2((w[ijk+ii+kk]-w[ijk   +kk])*dxi)
+
+                            // dv/dz
+                            + TF(0.5) * fm::pow2(vgradbot[ij])
+
+                            // dw/dy
+                            + TF(0.125)*fm::pow2((w[ijk      ]-w[ijk-jj   ])*dyi)
+                            + TF(0.125)*fm::pow2((w[ijk+jj   ]-w[ijk      ])*dyi)
+                            + TF(0.125)*fm::pow2((w[ijk   +kk]-w[ijk-jj+kk])*dyi)
+                            + TF(0.125)*fm::pow2((w[ijk+jj+kk]-w[ijk   +kk])*dyi) );
+
+                    // add a small number to avoid zero divisions
+                    strain2[ijk] += Constants::dsmall;
+                }
+        }
+
+        for (int k=kstart+k_offset; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    strain2[ijk] = TF(2.)*(
+                                   // du/dx + du/dx
+                                   + fm::pow2((u[ijk+ii]-u[ijk])*dxi)
+
+                                   // dv/dy + dv/dy
+                                   + fm::pow2((v[ijk+jj]-v[ijk])*dyi)
+
+                                   // dw/dz + dw/dz
+                                   + fm::pow2((w[ijk+kk]-w[ijk])*dzi[k])
+
+                                   // du/dy + dv/dx
+                                   + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -jj])*dyi  + (v[ijk      ]-v[ijk-ii   ])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-jj])*dyi  + (v[ijk+ii   ]-v[ijk      ])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk   +jj]-u[ijk      ])*dyi  + (v[ijk   +jj]-v[ijk-ii+jj])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk+ii+jj]-u[ijk+ii   ])*dyi  + (v[ijk+ii+jj]-v[ijk   +jj])*dxi)
+
+                                   // du/dz + dw/dx
+                                   + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -kk])*dzhi[k  ] + (w[ijk      ]-w[ijk-ii   ])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-kk])*dzhi[k  ] + (w[ijk+ii   ]-w[ijk      ])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk   +kk]-u[ijk      ])*dzhi[k+1] + (w[ijk   +kk]-w[ijk-ii+kk])*dxi)
+                                   + TF(0.125)*fm::pow2((u[ijk+ii+kk]-u[ijk+ii   ])*dzhi[k+1] + (w[ijk+ii+kk]-w[ijk   +kk])*dxi)
+
+                                   // dv/dz + dw/dy
+                                   + TF(0.125)*fm::pow2((v[ijk      ]-v[ijk   -kk])*dzhi[k  ] + (w[ijk      ]-w[ijk-jj   ])*dyi)
+                                   + TF(0.125)*fm::pow2((v[ijk+jj   ]-v[ijk+jj-kk])*dzhi[k  ] + (w[ijk+jj   ]-w[ijk      ])*dyi)
+                                   + TF(0.125)*fm::pow2((v[ijk   +kk]-v[ijk      ])*dzhi[k+1] + (w[ijk   +kk]-w[ijk-jj+kk])*dyi)
+                                   + TF(0.125)*fm::pow2((v[ijk+jj+kk]-v[ijk+jj   ])*dzhi[k+1] + (w[ijk+jj+kk]-w[ijk   +kk])*dyi) );
+
+                    // Add a small number to avoid zero divisions.
+                    strain2[ijk] += Constants::dsmall;
+                }
+    }
+
+    template <typename TF, Surface_model surface_model>
+    void calc_evisc_neutral(
+            TF* const restrict evisc,
+            const TF* const restrict u,
+            const TF* const restrict v,
+            const TF* const restrict w,
+            const TF* const restrict ufluxbot,
+            const TF* const restrict vfluxbot,
+            const TF* const restrict z,
+            const TF* const restrict dz,
+            const TF* const restrict dzhi,
+            const TF* const restrict z0m,
+            const TF dx, const TF dy, const TF zsize,
+            const TF cs, const TF visc,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int icells, const int jcells, const int ijcells,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+        const int jj = icells;
+        const int kk = ijcells;
+
+        // Wall damping constant.
+        constexpr TF n_mason = TF(1.);
+        constexpr TF A_vandriest = TF(26.);
+
+        if (surface_model == Surface_model::Disabled)
+        {
+            for (int k=kstart; k<kend; ++k)
+            {
+                // const TF mlen_wall = Constants::kappa<TF>*std::min(z[k], zsize-z[k]);
+                const TF mlen_smag = cs*std::pow(dx*dy*dz[k], TF(1./3.));
+
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk_bot = i + j*jj + kstart*kk;
+                        const int ijk_top = i + j*jj + kend*kk;
+
+                        const TF u_tau_bot = std::pow(
+                                fm::pow2( visc*(u[ijk_bot] - u[ijk_bot-kk] )*dzhi[kstart] )
+                              + fm::pow2( visc*(v[ijk_bot] - v[ijk_bot-kk] )*dzhi[kstart] ), TF(0.25) );
+                        const TF u_tau_top = std::pow(
+                                fm::pow2( visc*(u[ijk_top] - u[ijk_top-kk] )*dzhi[kend] )
+                              + fm::pow2( visc*(v[ijk_top] - v[ijk_top-kk] )*dzhi[kend] ), TF(0.25) );
+
+                        const TF fac_bot = TF(1.) - std::exp( -(       z[k] *u_tau_bot) / (A_vandriest*visc) );
+                        const TF fac_top = TF(1.) - std::exp( -((zsize-z[k])*u_tau_top) / (A_vandriest*visc) );
+                        const TF fac = std::min( fac_bot, fac_top );
+
+                        const int ijk = i + j*jj + k*kk;
+                        evisc[ijk] = fm::pow2(fac * mlen_smag) * std::sqrt(evisc[ijk]);
+                    }
+            }
+
+            // For a resolved wall the viscosity at the wall is needed. For now, assume that the eddy viscosity
+            // is mirrored around the surface.
+            const int kb = kstart;
+            const int kt = kend-1;
+            for (int j=0; j<jcells; ++j)
+                #pragma ivdep
+                for (int i=0; i<icells; ++i)
+                {
+                    const int ijkb = i + j*jj + kb*kk;
+                    const int ijkt = i + j*jj + kt*kk;
+                    evisc[ijkb-kk] = evisc[ijkb];
+                    evisc[ijkt+kk] = evisc[ijkt];
+                }
+        }
+        else
+        {
+            for (int k=kstart; k<kend; ++k)
+            {
+                // Calculate smagorinsky constant times filter width squared, use wall damping according to Mason's paper.
+                const TF mlen0 = cs*std::pow(dx*dy*dz[k], TF(1./3.));
+
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ij  = i + j*jj;
+                        const int ijk = i + j*jj + k*kk;
+
+                        // Mason mixing length
+                        const TF mlen = std::pow(TF(1.)/(TF(1.)/std::pow(mlen0, n_mason) +
+                                    TF(1.)/(std::pow(Constants::kappa<TF>*(z[k]+z0m[ij]), n_mason))), TF(1.)/n_mason);
+
+                        evisc[ijk] = fm::pow2(mlen) * std::sqrt(evisc[ijk]);
+                    }
+            }
+        }
+
+        boundary_cyclic.exec(evisc);
+    }
+
+    template<typename TF, Surface_model surface_model>
+    void calc_evisc(
+            TF* const restrict evisc,
+            const TF* const restrict u,
+            const TF* const restrict v,
+            const TF* const restrict w,
+            const TF* const restrict N2,
+            const TF* const restrict bgradbot,
+            const TF* const restrict z,
+            const TF* const restrict dz,
+            const TF* const restrict dzi,
+            const TF* const restrict z0m,
+            const TF dx, const TF dy,
+            const TF cs, const TF tPr,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int icells, const int jcells, const int ijcells,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+        const int jj = icells;
+        const int kk = ijcells;
+
+        if (surface_model == Surface_model::Disabled)
+        {
+            for (int k=kstart; k<kend; ++k)
+            {
+                // calculate smagorinsky constant times filter width squared, do not use wall damping with resolved walls.
+                const TF mlen = cs*std::pow(dx*dy*dz[k], TF(1./3.));
+                const TF fac = fm::pow2(mlen);
+
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk = i + j*jj + k*kk;
+
+                        // Add the buoyancy production to the TKE
+                        TF RitPrratio = N2[ijk] / evisc[ijk] / tPr;
+                        RitPrratio = std::min(RitPrratio, TF(1.-Constants::dsmall));
+
+                        evisc[ijk] = fac * std::sqrt(evisc[ijk]) * std::sqrt(TF(1.)-RitPrratio);
+                    }
+            }
+
+            // For a resolved wall the viscosity at the wall is needed. For now, assume that the eddy viscosity
+            // is mirrored over the surface.
+            const int kb = kstart;
+            const int kt = kend-1;
+            for (int j=0; j<jcells; ++j)
+                #pragma ivdep
+                for (int i=0; i<icells; ++i)
+                {
+                    const int ijkb = i + j*jj + kb*kk;
+                    const int ijkt = i + j*jj + kt*kk;
+                    evisc[ijkb-kk] = evisc[ijkb];
+                    evisc[ijkt+kk] = evisc[ijkt];
+                }
+        }
+        else
+        {
+            // Variables for the wall damping.
+            const TF n = 2.;
+
+            // Bottom boundary, here strain is fully parametrized using MO.
+            // Calculate smagorinsky constant times filter width squared, use wall damping according to Mason.
+            const TF mlen0 = cs*std::pow(dx*dy*dz[kstart], TF(1./3.));
+
+            for (int j=jstart; j<jend; ++j)
+            {
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + kstart*kk;
+
+                    // TODO use the thermal expansion coefficient from the input later, what to do if there is no buoyancy?
+                    // Add the buoyancy production to the TKE
+                    TF RitPrratio = bgradbot[ij] / evisc[ijk] / tPr;
+                    RitPrratio = std::min(RitPrratio, TF(1.-Constants::dsmall));
+
+                    // Mason mixing length
+                    const TF mlen = std::pow(TF(1.)/(TF(1.)/std::pow(mlen0, n) + TF(1.)/(std::pow(Constants::kappa<TF>*(z[kstart]+z0m[ij]), n))), TF(1.)/n);
+
+                    evisc[ijk] = fm::pow2(mlen) * std::sqrt(evisc[ijk]) * std::sqrt(TF(1.)-RitPrratio);
+                }
+            }
+
+            for (int k=kstart+1; k<kend; ++k)
+            {
+                // Calculate smagorinsky constant times filter width squared, use wall damping according to Mason
+                const TF mlen0 = cs*std::pow(dx*dy*dz[k], TF(1./3.));
+
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ij  = i + j*jj;
+                        const int ijk = i + j*jj + k*kk;
+
+                        // Add the buoyancy production to the TKE
+                        TF RitPrratio = N2[ijk] / evisc[ijk] / tPr;
+                        RitPrratio = std::min(RitPrratio, TF(1.-Constants::dsmall));
+
+                        // Mason mixing length
+                        const TF mlen = std::pow(TF(1.)/(TF(1.)/std::pow(mlen0, n) + TF(1.)/(std::pow(Constants::kappa<TF>*(z[k]+z0m[ij]), n))), TF(1.)/n);
+
+                        evisc[ijk] = fm::pow2(mlen) * std::sqrt(evisc[ijk]) * std::sqrt(TF(1.)-RitPrratio);
+                    }
+            }
+        }
+
+        boundary_cyclic.exec(evisc);
+    }
     
     template <typename TF, Surface_model surface_model>
     void destagger_u(
@@ -53,7 +375,8 @@ namespace
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
-            const int jj, const int kk)
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
     {
         
         const int ii = 1;
@@ -61,11 +384,12 @@ namespace
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
-                for (int i=istart; i<iend-ii; ++i)
+                for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
                     uc[ijk] = TF(0.5)*(u[ijk+ii]+u[ijk]);
                 }
+        boundary_cyclic.exec(uc);
     }
     
     template <typename TF, Surface_model surface_model>
@@ -75,19 +399,21 @@ namespace
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
-            const int jj, const int kk)
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
     {
         
         const int ii = 1;
 
         for (int k=kstart; k<kend; ++k)
-            for (int j=jstart; j<jend-jj; ++j)
+            for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
                     vc[ijk] = TF(0.5)*(v[ijk+jj]+v[ijk]);
                 }
+        boundary_cyclic.exec(vc);
     }
     
     template <typename TF, Surface_model surface_model>
@@ -97,12 +423,13 @@ namespace
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
-            const int jj, const int kk)
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
     {
         
         const int ii = 1;
 
-        for (int k=kstart; k<kend-kk; ++k)
+        for (int k=kstart; k<kend-1; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -110,6 +437,7 @@ namespace
                     const int ijk = i + j*jj + k*kk;
                     wc[ijk] = TF(0.5)*(w[ijk+kk]+w[ijk]);
                 }
+        boundary_cyclic.exec(wc);
     }
     
     template <typename TF, Surface_model surface_model>
@@ -120,11 +448,12 @@ namespace
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
-            const int jj, const int kk)
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
     {
         const int ii = 1;
         const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-        // If the wall isn't resolved, calculate du/dz and dv/dz at lowest grid height using MO
+        
         if (surface_model == Surface_model::Enabled)
         {
             for (int j=jstart; j<jend; ++j)
@@ -134,7 +463,7 @@ namespace
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + kstart*kk;
                     
-                    TKEh[ijk] = TKEh[ijk] = TF(0.25)*(
+                    TKEh[ijk] = TF(0.25)*(
                                    // dx**2*(du/dx)**2 
                                    + fm::pow2(uc[ijk+ii]-uc[ijk-ii])
                                    // dx**2*(dv/dx)**2
@@ -147,6 +476,7 @@ namespace
                                    + fm::pow2(-uc[ijk+2*kk]+TF(4.0)*uc[ijk+kk]-TF(3.0)*uc[ijk])
                                    // dz**2*(dv/dz)**2 " "
                                    + fm::pow2(-vc[ijk+2*kk]+TF(4.0)*vc[ijk+kk]-TF(3.0)*vc[ijk]));
+                    TKEh[ijk] += Constants::dsmall;
                 }
         }
 
@@ -173,9 +503,218 @@ namespace
                     // Add a small number to avoid zero divisions.
                     TKEh[ijk] += Constants::dsmall;
                 }
+        boundary_cyclic.exec(TKEh);
     }
     
+    template <typename TF, Surface_model surface_model>
+    void calc_TKEv(
+            TF* const restrict TKEv,
+            const TF* const restrict wc,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+        const int ii = 1;
+        const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
+        
+        if (surface_model == Surface_model::Enabled)
+        {
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + kstart*kk;
+                    
+                    TKEv[ijk] = TF(0.25)*(
+                                   // dx**2*(dw/dx)**2 
+                                   + fm::pow2(wc[ijk+ii]-wc[ijk-ii])
+                                   // dy**2*(dw/dy)**2
+                                   + fm::pow2(wc[ijk+jj]-wc[ijk-jj])
+                                   // dz**2*(dw/dz)**2 2nd order differencing, but one-sided at sfc
+                                   + fm::pow2(-wc[ijk+2*kk]+TF(4.0)*wc[ijk+kk]-TF(3.0)*wc[ijk]));
+                    TKEv[ijk] += Constants::dsmall;
+                }
+        }
+                
+        for (int k=kstart+k_offset; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    TKEv[ijk] = TF(0.25)*(
+                                   // dx**2*(db/dx)**2 
+                                   + fm::pow2(wc[ijk+ii]-wc[ijk-ii])
+                                   // dy**2*(db/dy)**2
+                                   + fm::pow2(wc[ijk+jj]-wc[ijk-jj])
+                                   // dz**2*(db/dz)**2
+                                   + fm::pow2(wc[ijk+kk]-wc[ijk-kk]));
 
+                    // Add a small number to avoid zero divisions.
+                    TKEv[ijk] += Constants::dsmall;
+                }
+        boundary_cyclic.exec(TKEv);
+    }
+        
+    template <typename TF, Surface_model surface_model>
+    void calc_TPE(
+            TF* const restrict TPE,
+            const TF* const restrict b,
+            const TF* const restrict N2,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int jj, const int kk,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+        const int ii = 1;
+        const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
+        
+        if (surface_model == Surface_model::Enabled)
+        {
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + kstart*kk;
+                    
+                    TPE[ijk] = TF(0.25)*(
+                                   // dx**2*(db/dx)**2 
+                                   + fm::pow2(b[ijk+ii]-b[ijk-ii])
+                                   // dy**2*(db/dy)**2
+                                   + fm::pow2(b[ijk+jj]-b[ijk-jj])
+                                   // dz**2*(db/dz)**2 2nd order differencing, but one-sided at sfc
+                                   + fm::pow2(-b[ijk+2*kk]+TF(4.0)*b[ijk+kk]-TF(3.0)*b[ijk]))/N2[ijk];
+                    TPE[ijk] += Constants::dsmall;
+                }
+        }
+
+        for (int k=kstart+k_offset; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    TPE[ijk] = TF(0.25)*(
+                                   // dx**2*(db/dx)**2 
+                                   + fm::pow2(b[ijk+ii]-b[ijk-ii])
+                                   // dy**2*(db/dy)**2
+                                   + fm::pow2(b[ijk+jj]-b[ijk-jj])
+                                   // dz**2*(db/dz)**2
+                                   + fm::pow2(b[ijk+kk]-b[ijk-kk]))/N2[ijk];
+
+                    // Add a small number to avoid zero divisions.
+                    TPE[ijk] += Constants::dsmall;
+                }
+        boundary_cyclic.exec(TPE);
+    }
+    
+    template <typename TF, Surface_model surface_model>
+    at::Tensor calc_Tau(
+            torch::jit::script::Module dnn,
+            const TF* const restrict uc,
+            const TF* const restrict vc,    
+            const TF* const restrict wc,
+            const TF* const restrict b,
+            const TF* const restrict TKEh,
+            const TF* const restrict TKEv,
+            const TF* const restrict TPE,
+            const TF* const restrict dz,
+            const int nh,
+            const int nbatch,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int jj, const int kk)
+    {
+        const int ii = 1;
+        const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
+        
+        const int nv = 3; // Vertical levels of input to DNN is fixed
+        const int iv = nv/2; 
+        const int ih = nh/2;
+        const int nbox = nv*nh*nh;
+
+        at::Tensor x = torch::zeros({nbatch, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
+
+        for (int k=kstart+k_offset; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                                       
+                    TF ubar = 0;
+                    TF vbar = 0;
+                    TF wbar = 0;
+                    TF bbar = 0;
+                    for (int ix=-ih; ix<=ih; ix++)
+                        for (int iy=-ih; iy<=ih; iy++)
+                            for (int iz=-iv; iz<=iv; iz++)
+                            {
+                                ubar += uc[ijk+ix*ii+iy*jj+iz*kk];
+                                vbar += vc[ijk+ix*ii+iy*jj+iz*kk];
+                                wbar += wc[ijk+ix*ii+iy*jj+iz*kk];
+                                bbar +=  b[ijk+ix*ii+iy*jj+iz*kk];
+                             }
+                    ubar=ubar/nbox;
+                    vbar=vbar/nbox;
+                    wbar=wbar/nbox;
+                    bbar=bbar/nbox;
+                    for (int iz=-iv; iz<=iv; iz++)
+                        for (int ix=-ih; ix<=ih; ++ix)
+                                for (int iy=-ih; iy<=ih; ++iy)
+                                {
+                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk],-0.5);
+                                    TF rootkvi = std::pow(TKEv[ijk],-0.5);
+                                    TF bScalei = dz[k]/TPE[ijk];
+                                    x.index_put_({ijk, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
+                                    x.index_put_({ijk, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
+                                    x.index_put_({ijk, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
+                                    x.index_put_({ijk, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
+                                }   
+                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}
+                }
+        
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(x);
+  
+        at::Tensor Tau = dnn.forward(inputs).toTensor();
+
+        for (int k=kstart+k_offset; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    
+                    TF ktot = TKEh[ijk]+TKEv[ijk];
+                    TF kv = TKEv[ijk];
+                    TF rootkkv =  std::pow(ktot*kv,0.5);
+                    
+                    if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk))
+                    {
+                        std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;
+                        std::cout << ktot << std::endl;
+                        std::cout << kv << std::endl;
+                        std::cout << rootkkv << std::endl;
+                    }
+                    Tau.index_put_({ijk, 0}, Tau.index({ijk, 0}) * ktot );
+                    Tau.index_put_({ijk, 1}, Tau.index({ijk, 1}) * ktot );
+                    Tau.index_put_({ijk, 2}, Tau.index({ijk, 2}) * rootkkv );
+                    Tau.index_put_({ijk, 3}, Tau.index({ijk, 3}) * ktot );
+                    Tau.index_put_({ijk, 4}, Tau.index({ijk, 4}) * rootkkv );
+                    Tau.index_put_({ijk, 5}, Tau.index({ijk, 5}) * kv );
+                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}
+                    
+                }
+                
+        return Tau.to(torch::kDouble);
+    }
 
     template <typename TF, Surface_model surface_model>
     void diff_u(
@@ -273,7 +812,7 @@ namespace
 
         const int ii = 1;
 
-         if (surface_model == Surface_model::Enabled)
+        if (surface_model == Surface_model::Enabled)
         {
             // bottom boundary
             for (int j=jstart; j<jend; ++j)
@@ -623,41 +1162,53 @@ namespace
             }
     }
 
-  template<typename TF, Surface_model surface_model>
-    void calc_evisc(
-            TF* const restrict evisc,
-            const TF* const restrict T11,
-            const TF* const restrict T22,
-            const TF* const restrict T33,
-            const TF* const restrict dz,
-            const TF dx, const TF dy,
-            const TF ce, //const TF tPr,
+    /*template<typename TF>
+    void set_flux(
+            TF* flux_fld,
+            const at::Tensor Tau,
+            const int dim,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+               
+        flux_fld = Tau.slice(1, dim, dim+1).data_ptr<TF>();
+        boundary_cyclic.exec(flux_fld);
+    } */
+    
+   template<typename TF>
+    void set_flux(
+            TF* const restrict flux_fld,
+            const at::Tensor Tau,
+            const int dim,
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
-            const int icells, const int jcells, const int ijcells,
+            const int icells, const int ijcells,
             Boundary_cyclic<TF>& boundary_cyclic)
     {
+               
+        const TF* flux = Tau.slice(1, dim, dim+1).data_ptr<TF>();
+        //if (dim==2){std::cout << Tau.slice(1, dim, dim+1) << std::endl;}
         const int jj = icells;
         const int kk = ijcells;
         
         for (int k=kstart+1; k<kend; ++k)    
-        {
-            const TF lgrid = std::pow(dx*dy*dz[k], TF(1./3.));
             for (int j=jstart; j<jend; ++j)
-                    #pragma ivdep
-                    for (int i=istart; i<iend; ++i)
-                    {
-                        const int ij  = i + j*jj;
-                        const int ijk = i + j*jj + k*kk;
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + k*kk;
 
-                         // Create a vector of inputs.
-                         evisc[ijk] = ce*lgrid*std::pow(TF(0.5)*(T11[ijk]+T22[ijk]+T33[ijk]),0.5); // Don't divide by tPr here, done later
+                    flux_fld[ijk] = flux[ijk];
+                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk))
+                    {
+                        std::cout << flux[ijk] << std::endl;
+                        std::cout << flux_fld[ijk] << std::endl;
                     }
-        }
-        boundary_cyclic.exec(evisc);
-    }
-    
+                }
+              
+        boundary_cyclic.exec(flux_fld);
+    } 
 
 } // End namespace.
 
@@ -672,7 +1223,10 @@ Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin,
     cs    = inputin.get_item<TF>("diff", "cs"   , "", 0.23 );
     ce    = inputin.get_item<TF>("diff", "ce"   , "", 0.15 );
     tPr   = inputin.get_item<TF>("diff", "tPr"  , "", 1./3.);
-
+    dnnpath = inputin.get_item<std::string>("diff", "dnnpath"  , "", "C4_midGridReInterp_local_4x1026Re900_4x3078Re2700_1.pt");
+    try {dnn = torch::jit::load(dnnpath);} // Deserialize the ScriptModule from a file
+    catch (const c10::Error& e) {std::cerr << "error loading the deep neural network\n";}
+        
     const std::string group_name = "default";
 
     fields.init_diagnostic_field("evisc", "Eddy viscosity", "m2 s-1", group_name, gd.sloc);
@@ -682,7 +1236,14 @@ Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin,
     fields.init_diagnostic_field("T22", "Turbulent flux of u_2 mom'm in x_2 direction", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("T23", "Turbulent flux of u_2(3) mom'm in x_3(2) direction", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("T33", "Turbulent flux of u_3 mom'm in x_3 direction", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("TKEh", "Proportional to turbulent kinetic energy associated with horizontal velocities as estimated by Taylor expansion", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("TKEv", "Proportional to turbulent kinetic energy associated with vertical velocity as estimated by Taylor expansion", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("TPE", "Proportional to turbulent potential energy as estimated by Taylor expansion of buoyancy", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("uc", "Destaggered u velocity", "m s-1", group_name, gd.sloc);
+    fields.init_diagnostic_field("vc", "Destaggered v velocity", "m s-1", group_name, gd.sloc);
+    fields.init_diagnostic_field("wc", "Destaggered w velocity", "m s-1", group_name, gd.sloc);
 
+        
     if (grid.get_spatial_order() != Grid_order::Second)
         throw std::runtime_error("Diff_dnn only runs with second order grids");
 }
@@ -704,6 +1265,42 @@ Diffusion_type Diff_dnn<TF>::get_switch() const
     return swdiff;
 }
 
+#ifndef USECUDA
+template<typename TF>
+unsigned long Diff_dnn<TF>::get_time_limit(const unsigned long idt, const double dt)
+{
+    auto& gd = grid.get_grid_data();
+
+    double dnmul = calc_dnmul<TF>(
+        fields.sd.at("evisc")->fld.data(),
+        gd.dzi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy), tPr,
+        gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+        gd.icells, gd.ijcells);
+    master.max(&dnmul, 1);
+
+    // Avoid zero division.
+    dnmul = std::max(Constants::dsmall, dnmul);
+
+    return idt * dnmax / (dt * dnmul);
+}
+#endif
+
+#ifndef USECUDA
+template<typename TF>
+double Diff_dnn<TF>::get_dn(const double dt)
+{
+    auto& gd = grid.get_grid_data();
+
+    double dnmul = calc_dnmul<TF>(
+        fields.sd.at("evisc")->fld.data(),
+        gd.dzi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy), tPr,
+        gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+        gd.icells, gd.ijcells);
+    master.max(&dnmul, 1);
+
+    return dnmul*dt;
+}
+#endif
 
 template<typename TF>
 void Diff_dnn<TF>::create(Stats<TF>& stats)
@@ -723,6 +1320,337 @@ void Diff_dnn<TF>::create(Stats<TF>& stats)
     create_stats(stats);
 }
 
+#ifndef USECUDA
+template<typename TF>
+void Diff_dnn<TF>::exec(Stats<TF>& stats)
+{
+    auto& gd = grid.get_grid_data();
+
+    if (boundary.get_switch() != "default")
+    {
+        diff_u<TF, Surface_model::Enabled>(
+                fields.mt.at("u")->fld.data(),
+                fields.sd.at("T11")->fld.data(), fields.sd.at("T12")->fld.data(), fields.sd.at("T13")->fld.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                //fields.sd.at("evisc")->fld.data(),
+                fields.mp.at("u")->flux_bot.data(), fields.mp.at("u")->flux_top.data(),
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+        diff_v<TF, Surface_model::Enabled>(
+                fields.mt.at("v")->fld.data(),
+                fields.sd.at("T12")->fld.data(), fields.sd.at("T22")->fld.data(), fields.sd.at("T23")->fld.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                fields.mp.at("v")->flux_bot.data(), fields.mp.at("v")->flux_top.data(),
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+        diff_w<TF>(
+                fields.mt.at("w")->fld.data(),
+                fields.sd.at("T13")->fld.data(), fields.sd.at("T23")->fld.data(), fields.sd.at("T33")->fld.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+        for (auto it : fields.st)
+        {
+            diff_c<TF, Surface_model::Enabled>(
+                    it.second->fld.data(), fields.sp.at(it.first)->fld.data(),
+                    gd.dzi.data(), gd.dzhi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy),
+                    fields.sd.at("evisc")->fld.data(),
+                    fields.sp.at(it.first)->flux_bot.data(), fields.sp.at(it.first)->flux_top.data(),
+                    fields.rhoref.data(), fields.rhorefh.data(), tPr,
+                    fields.sp.at(it.first)->visc,
+                    gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells);
+        }
+    }
+    
+
+
+    stats.calc_tend(*fields.mt.at("u"), tend_name);
+    stats.calc_tend(*fields.mt.at("v"), tend_name);
+    stats.calc_tend(*fields.mt.at("w"), tend_name);
+    for (auto it : fields.st)
+        stats.calc_tend(*it.second, tend_name);
+}
+#endif
+
+template<typename TF>
+void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
+{
+    auto& gd = grid.get_grid_data();
+    auto buoy_tmp = fields.get_tmp();
+    thermo.get_thermo_field(*buoy_tmp, "N2", false, false);
+    
+        if (boundary.get_switch() != "default")
+    {
+        const std::vector<TF>& z0m = boundary.get_z0m();
+
+        // Calculate strain rate using MO for velocity gradients lowest level.
+        const std::vector<TF>& dudz = boundary.get_dudz();
+        const std::vector<TF>& dvdz = boundary.get_dvdz();
+
+        calc_strain2<TF, Surface_model::Enabled>(
+                fields.sd.at("evisc")->fld.data(),
+                fields.mp.at("u")->fld.data(),
+                fields.mp.at("v")->fld.data(),
+                fields.mp.at("w")->fld.data(),
+                dudz.data(),
+                dvdz.data(),
+                gd.z.data(),
+                gd.dzi.data(),
+                gd.dzhi.data(),
+                1./gd.dx, 1./gd.dy,
+                gd.istart, gd.iend,
+                gd.jstart, gd.jend,
+                gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+    }
+    else
+        // Calculate strain rate using resolved boundaries.
+        calc_strain2<TF, Surface_model::Disabled>(
+                fields.sd.at("evisc")->fld.data(),
+                fields.mp.at("u")->fld.data(),
+                fields.mp.at("v")->fld.data(),
+                fields.mp.at("w")->fld.data(),
+                nullptr, nullptr,
+                gd.z.data(),
+                gd.dzi.data(),
+                gd.dzhi.data(),
+                1./gd.dx, 1./gd.dy,
+                gd.istart, gd.iend,
+                gd.jstart, gd.jend,
+                gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+
+    // Start with retrieving the stability information
+    if (thermo.get_switch() == "0")
+    {
+        // Calculate eddy viscosity using MO at lowest model level
+        if (boundary.get_switch() != "default")
+        {
+            const std::vector<TF>& z0m = boundary.get_z0m();
+
+            calc_evisc_neutral<TF, Surface_model::Enabled>(
+                    fields.sd.at("evisc")->fld.data(),
+                    fields.mp.at("u")->fld.data(),
+                    fields.mp.at("v")->fld.data(),
+                    fields.mp.at("w")->fld.data(),
+                    fields.mp.at("u")->flux_bot.data(),
+                    fields.mp.at("v")->flux_bot.data(),
+                    gd.z.data(), gd.dz.data(), gd.dzhi.data(), z0m.data(),
+                    gd.dx, gd.dy, gd.zsize, this->cs, fields.visc,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.jcells, gd.ijcells,
+                    boundary_cyclic);
+        }
+
+        // Calculate eddy viscosity assuming resolved walls
+        else
+        {
+            calc_evisc_neutral<TF, Surface_model::Disabled>(
+                    fields.sd.at("evisc")->fld.data(),
+                    fields.mp.at("u")->fld.data(),
+                    fields.mp.at("v")->fld.data(),
+                    fields.mp.at("w")->fld.data(),
+                    fields.mp.at("u")->flux_bot.data(),
+                    fields.mp.at("v")->flux_bot.data(),
+                    gd.z.data(), gd.dz.data(), gd.dzhi.data(), nullptr,
+                    gd.dx, gd.dy, gd.zsize, this->cs, fields.visc,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.jcells, gd.ijcells,
+                    boundary_cyclic);
+        }
+    }
+    // assume buoyancy calculation is needed
+    else
+    {
+        //auto buoy_tmp = fields.get_tmp();
+
+        //thermo.get_thermo_field(*buoy_tmp, "N2", false, false);
+        const std::vector<TF>& dbdz = boundary.get_dbdz();
+
+        if (boundary.get_switch() != "default")
+        {
+            const std::vector<TF>& z0m = boundary.get_z0m();
+
+            calc_evisc<TF, Surface_model::Enabled>(
+                    fields.sd.at("evisc")->fld.data(),
+                    fields.mp.at("u")->fld.data(),
+                    fields.mp.at("v")->fld.data(),
+                    fields.mp.at("w")->fld.data(),
+                    buoy_tmp->fld.data(),
+                    dbdz.data(),
+                    gd.z.data(), gd.dz.data(),
+                    gd.dzi.data(), z0m.data(),
+                    gd.dx, gd.dy, this->cs, this->tPr,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.jcells, gd.ijcells,
+                    boundary_cyclic);
+            /*
+            calc_evisc_TKEbased<TF, Surface_model::Enabled>(
+                    fields.sd.at("evisc")->fld.data(),
+                    T11,T22, T33,
+                    gd.dz.data(),
+                    gd.dx, gd.dy, this->ce, //this->tPr,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.jcells, gd.ijcells,
+                    boundary_cyclic);
+            */
+            
+        }
+        else
+        {
+            calc_evisc<TF, Surface_model::Disabled>(
+                    fields.sd.at("evisc")->fld.data(),
+                    fields.mp.at("u")->fld.data(),
+                    fields.mp.at("v")->fld.data(),
+                    fields.mp.at("w")->fld.data(),
+                    buoy_tmp->fld.data(),
+                    nullptr,
+                    gd.z.data(), gd.dz.data(),
+                    gd.dzi.data(), nullptr,
+                    gd.dx, gd.dy, this->cs, this->tPr,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.jcells, gd.ijcells,
+                    boundary_cyclic);
+        }
+
+        //fields.release_tmp(buoy_tmp);
+      }
+    
+    destagger_u<TF, Surface_model::Enabled>(fields.sd.at("uc")->fld.data(), 
+                    fields.mp.at("u")->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells,gd.ijcells,
+                    boundary_cyclic);
+        
+    destagger_v<TF, Surface_model::Enabled>(fields.sd.at("vc")->fld.data(),
+                    fields.mp.at("v")->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+        
+    destagger_w<TF, Surface_model::Enabled>(fields.sd.at("wc")->fld.data(),
+                    fields.mp.at("w")->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    
+    
+    calc_TKEh<TF, Surface_model::Enabled>(fields.sd.at("TKEh")->fld.data(),
+                    fields.sd.at("uc")->fld.data(),
+                    fields.sd.at("vc")->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    
+    calc_TKEv<TF, Surface_model::Enabled>(fields.sd.at("TKEv")->fld.data(),
+                    fields.sd.at("wc")->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    
+    calc_TPE<TF, Surface_model::Enabled>(fields.sd.at("TPE")->fld.data(),
+                    fields.sp.at("b")->fld.data(),
+                    buoy_tmp->fld.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    
+    fields.release_tmp(buoy_tmp);
+    
+    Tau = calc_Tau<TF, Surface_model::Enabled>(
+                    this->dnn,
+                    fields.sd.at("uc")->fld.data(),
+                    fields.sd.at("vc")->fld.data(),
+                    fields.sd.at("wc")->fld.data(),
+                    fields.sp.at("b")->fld.data(),
+                    fields.sd.at("TKEh")->fld.data(),
+                    fields.sd.at("TKEv")->fld.data(),
+                    fields.sd.at("TPE")->fld.data(),
+                    gd.dzi.data(),
+                    3,
+                    gd.ncells,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells);
+        
+    int ijk=gd.iend/2+ (gd.jend/2)*gd.icells + (gd.kend/3)*gd.ijcells;
+    std::cout << Tau.index({ijk}) << std::endl; 
+    //std::cout << Tau.slice(1, 0, 1).data_ptr<TF>() << std::endl;
+    
+      
+    set_flux<TF>(fields.sd.at("T11")->fld.data(),Tau,0,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T12")->fld.data(),Tau,1,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T13")->fld.data(),Tau,2,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T22")->fld.data(),Tau,3,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T23")->fld.data(),Tau,4,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T33")->fld.data(),Tau,5,
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic); 
+    
+}
+#ifndef USECUDA
 template<typename TF>
 void Diff_dnn<TF>::create_stats(Stats<TF>& stats)
 {
@@ -740,6 +1668,7 @@ void Diff_dnn<TF>::create_stats(Stats<TF>& stats)
             stats.add_tendency(*it.second, "z", tend_name, tend_longname);
     }
 }
+#endif
 
 template<typename TF>
 void Diff_dnn<TF>::exec_stats(Stats<TF>& stats)
@@ -811,283 +1740,17 @@ void Diff_dnn<TF>::diff_flux(Field3d<TF>& restrict out, const Field3d<TF>& restr
 }
 template class Diff_dnn<double>;
 template class Diff_dnn<float>;
- 
-#ifndef USECUDA
-template<typename TF>
-unsigned long Diff_dnn<TF>::get_time_limit(const unsigned long idt, const double dt)
-{
-    auto& gd = grid.get_grid_data();
-
-    double dnmul = calc_dnmul<TF>(
-        fields.sd.at("evisc")->fld.data(),
-        gd.dzi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy), tPr,
-        gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-        gd.icells, gd.ijcells);
-    master.max(&dnmul, 1);
-
-    // Avoid zero division.
-    dnmul = std::max(Constants::dsmall, dnmul);
-
-    return idt * dnmax / (dt * dnmul);
-}
-#endif
-
-#ifndef USECUDA
-template<typename TF>
-double Diff_dnn<TF>::get_dn(const double dt)
-{
-    auto& gd = grid.get_grid_data();
-
-    double dnmul = calc_dnmul<TF>(
-        fields.sd.at("evisc")->fld.data(),
-        gd.dzi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy), tPr,
-        gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-        gd.icells, gd.ijcells);
-    master.max(&dnmul, 1);
-
-    return dnmul*dt;
-}
-#endif
-
-#ifndef USECUDA
-template<typename TF>
-void Diff_dnn<TF>::exec(Stats<TF>& stats)
-{
-    auto& gd = grid.get_grid_data();
-
-    if (boundary.get_switch() != "default")
-    {
-        diff_u<TF, Surface_model::Enabled>(
-                fields.mt.at("u")->fld.data(),
-                fields.sd.at("T11")->fld.data(), fields.sd.at("T12")->fld.data(), fields.sd.at("T13")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                //fields.sd.at("evisc")->fld.data(),
-                fields.mp.at("u")->flux_bot.data(), fields.mp.at("u")->flux_top.data(),
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        diff_v<TF, Surface_model::Enabled>(
-                fields.mt.at("v")->fld.data(),
-                fields.sd.at("T12")->fld.data(), fields.sd.at("T22")->fld.data(), fields.sd.at("T23")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                fields.mp.at("v")->flux_bot.data(), fields.mp.at("v")->flux_top.data(),
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        diff_w<TF>(
-                fields.mt.at("w")->fld.data(),
-                fields.sd.at("T13")->fld.data(), fields.sd.at("T23")->fld.data(), fields.sd.at("T33")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        for (auto it : fields.st)
-        {
-            diff_c<TF, Surface_model::Enabled>(
-                    it.second->fld.data(), fields.sp.at(it.first)->fld.data(),
-                    gd.dzi.data(), gd.dzhi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy),
-                    fields.sd.at("evisc")->fld.data(),
-                    fields.sp.at(it.first)->flux_bot.data(), fields.sp.at(it.first)->flux_top.data(),
-                    fields.rhoref.data(), fields.rhorefh.data(), tPr,
-                    fields.sp.at(it.first)->visc,
-                    gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells);
-        }
-    }
-    
-
-
-    stats.calc_tend(*fields.mt.at("u"), tend_name);
-    stats.calc_tend(*fields.mt.at("v"), tend_name);
-    stats.calc_tend(*fields.mt.at("w"), tend_name);
-    for (auto it : fields.st)
-        stats.calc_tend(*it.second, tend_name);
-}
-
-template<typename TF>
-void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
-{
-           // Store the buoyancy flux in tmp1
-        auto& gd = grid.get_grid_data();
-        auto buoy_tmp = fields.get_tmp();
-        thermo.get_thermo_field(*buoy_tmp, "N2", false, false);
-        const std::vector<TF>& dbdz = boundary.get_dbdz();
-
-        if (boundary.get_switch() != "default")
-        {
-            const std::vector<TF>& z0m = boundary.get_z0m();
-
-                                   
-            //calc_tau<TF, Surface_model::Enabled>(output);
-            //std::vector<TF> Tau[gd.ntot];  
-            //std::fill_n(Tau, gd.ntot, TF(0.00001));// torch::ones({gd.ntot, 6})*TF(0.00001);
-            //Tau = fields.visc
-            
-            at::Tensor Tau = torch::rand({gd.ntot, 6}).to(torch::kDouble);
-            //std::cout << Tau << std::endl;
-
-            TF* T11 = Tau.slice(/*dim=*/1, /*start=*/0, /*end=*/0).data_ptr<TF>();
-            TF* T12 = Tau.slice(/*dim=*/1, /*start=*/1, /*end=*/1).data_ptr<TF>();
-            TF* T13 = Tau.slice(/*dim=*/1, /*start=*/2, /*end=*/2).data_ptr<TF>();
-            TF* T22 = Tau.slice(/*dim=*/1, /*start=*/3, /*end=*/3).data_ptr<TF>();
-            TF* T23 = Tau.slice(/*dim=*/1, /*start=*/4, /*end=*/4).data_ptr<TF>();
-            TF* T33 = Tau.slice(/*dim=*/1, /*start=*/5, /*end=*/5).data_ptr<TF>(); 
-            
-            boundary_cyclic.exec(T11);
-            boundary_cyclic.exec(T12);
-            boundary_cyclic.exec(T13);
-            boundary_cyclic.exec(T22);
-            boundary_cyclic.exec(T23);
-            boundary_cyclic.exec(T33);
-            
-            calc_evisc<TF, Surface_model::Enabled>(
-                    fields.sd.at("evisc")->fld.data(),
-                    T11,T22, T33,
-                    gd.dz.data(),
-                    gd.dx, gd.dy, this->ce, //this->tPr,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.jcells, gd.ijcells,
-                    boundary_cyclic);
-                       
-            fields.release_tmp(buoy_tmp);
-            //fields.release_tmp(tmp);
-    }
-}
-#endif
 
 /*
-    template <typename TF, Surface_model surface_model>
-    void calc_strain2(
-            TF* const restrict strain2,
-            const TF* const restrict u,
-            const TF* const restrict v,
-            const TF* const restrict w,
-            const TF* const restrict ugradbot,
-            const TF* const restrict vgradbot,
-            const TF* const restrict z,
-            const TF* const restrict dzi,
-            const TF* const restrict dzhi,
-            const TF dxi, const TF dyi,
-            const int istart, const int iend,
-            const int jstart, const int jend,
-            const int kstart, const int kend,
-            const int jj, const int kk)
-    {
-        const int ii = 1;
-        const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-
-        const TF zsl = z[kstart];
-
-        // If the wall isn't resolved, calculate du/dz and dv/dz at lowest grid height using MO
-        if (surface_model == Surface_model::Enabled)
-        {
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + kstart*kk;
-
-                    strain2[ijk] = TF(2.)*(
-                            // du/dx + du/dx
-                            + fm::pow2((u[ijk+ii]-u[ijk])*dxi)
-
-                            // dv/dy + dv/dy
-                            + fm::pow2((v[ijk+jj]-v[ijk])*dyi)
-
-                            // dw/dz + dw/dz
-                            + fm::pow2((w[ijk+kk]-w[ijk])*dzi[kstart])
-
-                            // du/dy + dv/dx
-                            + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -jj])*dyi  + (v[ijk      ]-v[ijk-ii   ])*dxi)
-                            + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-jj])*dyi  + (v[ijk+ii   ]-v[ijk      ])*dxi)
-                            + TF(0.125)*fm::pow2((u[ijk   +jj]-u[ijk      ])*dyi  + (v[ijk   +jj]-v[ijk-ii+jj])*dxi)
-                            + TF(0.125)*fm::pow2((u[ijk+ii+jj]-u[ijk+ii   ])*dyi  + (v[ijk+ii+jj]-v[ijk   +jj])*dxi)
-
-                            // du/dz
-                            + TF(0.5) * fm::pow2(ugradbot[ij])
-
-                            // dw/dx
-                            + TF(0.125)*fm::pow2((w[ijk      ]-w[ijk-ii   ])*dxi)
-                            + TF(0.125)*fm::pow2((w[ijk+ii   ]-w[ijk      ])*dxi)
-                            + TF(0.125)*fm::pow2((w[ijk   +kk]-w[ijk-ii+kk])*dxi)
-                            + TF(0.125)*fm::pow2((w[ijk+ii+kk]-w[ijk   +kk])*dxi)
-
-                            // dv/dz
-                            + TF(0.5) * fm::pow2(vgradbot[ij])
-
-                            // dw/dy
-                            + TF(0.125)*fm::pow2((w[ijk      ]-w[ijk-jj   ])*dyi)
-                            + TF(0.125)*fm::pow2((w[ijk+jj   ]-w[ijk      ])*dyi)
-                            + TF(0.125)*fm::pow2((w[ijk   +kk]-w[ijk-jj+kk])*dyi)
-                            + TF(0.125)*fm::pow2((w[ijk+jj+kk]-w[ijk   +kk])*dyi) );
-
-                    // add a small number to avoid zero divisions
-                    strain2[ijk] += Constants::dsmall;
-                }
-        }
-
-        for (int k=kstart+k_offset; k<kend; ++k)
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ijk = i + j*jj + k*kk;
-                    strain2[ijk] = TF(2.)*(
-                                   // du/dx + du/dx
-                                   + fm::pow2((u[ijk+ii]-u[ijk])*dxi)
-
-                                   // dv/dy + dv/dy
-                                   + fm::pow2((v[ijk+jj]-v[ijk])*dyi)
-
-                                   // dw/dz + dw/dz
-                                   + fm::pow2((w[ijk+kk]-w[ijk])*dzi[k])
-
-                                   // du/dy + dv/dx
-                                   + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -jj])*dyi  + (v[ijk      ]-v[ijk-ii   ])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-jj])*dyi  + (v[ijk+ii   ]-v[ijk      ])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk   +jj]-u[ijk      ])*dyi  + (v[ijk   +jj]-v[ijk-ii+jj])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk+ii+jj]-u[ijk+ii   ])*dyi  + (v[ijk+ii+jj]-v[ijk   +jj])*dxi)
-
-                                   // du/dz + dw/dx
-                                   + TF(0.125)*fm::pow2((u[ijk      ]-u[ijk   -kk])*dzhi[k  ] + (w[ijk      ]-w[ijk-ii   ])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk+ii   ]-u[ijk+ii-kk])*dzhi[k  ] + (w[ijk+ii   ]-w[ijk      ])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk   +kk]-u[ijk      ])*dzhi[k+1] + (w[ijk   +kk]-w[ijk-ii+kk])*dxi)
-                                   + TF(0.125)*fm::pow2((u[ijk+ii+kk]-u[ijk+ii   ])*dzhi[k+1] + (w[ijk+ii+kk]-w[ijk   +kk])*dxi)
-
-                                   // dv/dz + dw/dy
-                                   + TF(0.125)*fm::pow2((v[ijk      ]-v[ijk   -kk])*dzhi[k  ] + (w[ijk      ]-w[ijk-jj   ])*dyi)
-                                   + TF(0.125)*fm::pow2((v[ijk+jj   ]-v[ijk+jj-kk])*dzhi[k  ] + (w[ijk+jj   ]-w[ijk      ])*dyi)
-                                   + TF(0.125)*fm::pow2((v[ijk   +kk]-v[ijk      ])*dzhi[k+1] + (w[ijk   +kk]-w[ijk-jj+kk])*dyi)
-                                   + TF(0.125)*fm::pow2((v[ijk+jj+kk]-v[ijk+jj   ])*dzhi[k+1] + (w[ijk+jj+kk]-w[ijk   +kk])*dyi) );
-
-                    // Add a small number to avoid zero divisions.
-                    strain2[ijk] += Constants::dsmall;
-                }
-    }
-
-    template <typename TF, Surface_model surface_model>
-    void calc_evisc_neutral(
+    template<typename TF, Surface_model surface_model>
+    void calc_evisc_TKEbased(
             TF* const restrict evisc,
-            const TF* const restrict u,
-            const TF* const restrict v,
-            const TF* const restrict w,
-            const TF* const restrict ufluxbot,
-            const TF* const restrict vfluxbot,
-            const TF* const restrict z,
+            const TF* const restrict T11,
+            const TF* const restrict T22,
+            const TF* const restrict T33,
             const TF* const restrict dz,
-            const TF* const restrict dzhi,
-            const TF* const restrict z0m,
-            const TF dx, const TF dy, const TF zsize,
-            const TF cs, const TF visc,
+            const TF dx, const TF dy,
+            const TF ce, //const TF tPr,
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
@@ -1096,80 +1759,21 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
     {
         const int jj = icells;
         const int kk = ijcells;
-
-        // Wall damping constant.
-        constexpr TF n_mason = TF(1.);
-        constexpr TF A_vandriest = TF(26.);
-
-        if (surface_model == Surface_model::Disabled)
+        
+        for (int k=kstart+1; k<kend; ++k)    
         {
-            for (int k=kstart; k<kend; ++k)
-            {
-                // const TF mlen_wall = Constants::kappa<TF>*std::min(z[k], zsize-z[k]);
-                const TF mlen_smag = cs*std::pow(dx*dy*dz[k], TF(1./3.));
-
-                for (int j=jstart; j<jend; ++j)
-                    #pragma ivdep
-                    for (int i=istart; i<iend; ++i)
-                    {
-                        const int ijk_bot = i + j*jj + kstart*kk;
-                        const int ijk_top = i + j*jj + kend*kk;
-
-                        const TF u_tau_bot = std::pow(
-                                fm::pow2( visc*(u[ijk_bot] - u[ijk_bot-kk] )*dzhi[kstart] )
-                              + fm::pow2( visc*(v[ijk_bot] - v[ijk_bot-kk] )*dzhi[kstart] ), TF(0.25) );
-                        const TF u_tau_top = std::pow(
-                                fm::pow2( visc*(u[ijk_top] - u[ijk_top-kk] )*dzhi[kend] )
-                              + fm::pow2( visc*(v[ijk_top] - v[ijk_top-kk] )*dzhi[kend] ), TF(0.25) );
-
-                        const TF fac_bot = TF(1.) - std::exp( -(       z[k] *u_tau_bot) / (A_vandriest*visc) );
-                        const TF fac_top = TF(1.) - std::exp( -((zsize-z[k])*u_tau_top) / (A_vandriest*visc) );
-                        const TF fac = std::min( fac_bot, fac_top );
-
-                        const int ijk = i + j*jj + k*kk;
-                        evisc[ijk] = fm::pow2(fac * mlen_smag) * std::sqrt(evisc[ijk]);
-                    }
-            }
-
-            // For a resolved wall the viscosity at the wall is needed. For now, assume that the eddy viscosity
-            // is mirrored around the surface.
-            const int kb = kstart;
-            const int kt = kend-1;
-            for (int j=0; j<jcells; ++j)
-                #pragma ivdep
-                for (int i=0; i<icells; ++i)
-                {
-                    const int ijkb = i + j*jj + kb*kk;
-                    const int ijkt = i + j*jj + kt*kk;
-                    evisc[ijkb-kk] = evisc[ijkb];
-                    evisc[ijkt+kk] = evisc[ijkt];
-                }
-        }
-        else
-        {
-            for (int k=kstart; k<kend; ++k)
-            {
-                // Calculate smagorinsky constant times filter width squared, use wall damping according to Mason's paper.
-                const TF mlen0 = cs*std::pow(dx*dy*dz[k], TF(1./3.));
-
-                for (int j=jstart; j<jend; ++j)
+            const TF lgrid = std::pow(dx*dy*dz[k], TF(1./3.));
+            for (int j=jstart; j<jend; ++j)
                     #pragma ivdep
                     for (int i=istart; i<iend; ++i)
                     {
                         const int ij  = i + j*jj;
                         const int ijk = i + j*jj + k*kk;
 
-                        // Mason mixing length
-                        const TF mlen = std::pow(TF(1.)/(TF(1.)/std::pow(mlen0, n_mason) +
-                                    TF(1.)/(std::pow(Constants::kappa<TF>*(z[k]+z0m[ij]), n_mason))), TF(1.)/n_mason);
-
-                        evisc[ijk] = fm::pow2(mlen) * std::sqrt(evisc[ijk]);
+                         // Create a vector of inputs.
+                         evisc[ijk] = ce*lgrid*std::pow(TF(0.5)*(T11[ijk]+T22[ijk]+T33[ijk]),0.5); // Don't divide by tPr here, done later
                     }
-            }
         }
-
         boundary_cyclic.exec(evisc);
     }
-
-  
 */

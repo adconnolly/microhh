@@ -27,6 +27,7 @@
 #include "boundary_cyclic.h"
 #include "field3d_operators.h"
 #include <torch/torch.h>
+#include <torch/script.h>
 
 template<typename> class Stats;
 
@@ -75,17 +76,13 @@ class Diff_dnn : public Diff<TF>
 
         double cs;        
         
-        double ce;
+        double ce; // for the TKE based estimate of eddy viscosity, not using currently
         TF lgrid;
         //torch::Tensor Tau;
         at::Tensor Tau;
-        TF* T11;
-        TF* T12;
-        TF* T13;
-        TF* T22;
-        TF* T23;
-        TF* T33;
-
+        std::string dnnpath;
+        torch::jit::script::Module dnn;
+       
         const std::string tend_name = "diff";
         const std::string tend_longname = "Diffusion";
 };
