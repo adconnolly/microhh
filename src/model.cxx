@@ -27,6 +27,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#include <torch/torch.h>
 #include "master.h"
 #include "input.h"
 #include "grid.h"
@@ -305,6 +306,8 @@ void Model<TF>::exec()
     if (sim_mode == Sim_mode::Init)
         return;
 
+    c10::InferenceMode guard(true);
+        
     #ifdef USECUDA
     prepare_gpu();
     #endif
