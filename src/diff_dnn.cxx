@@ -46,6 +46,56 @@ namespace
 
     enum class Surface_model {Enabled, Disabled};
 
+    template<typename TF>
+    void molecular_diff_c(TF* restrict at, const TF* restrict a, const TF visc,
+                const int istart, const int iend, const int jstart, const int jend, const int kstart, const int kend,
+                const int jj, const int kk, const TF dx, const TF dy, const TF* restrict dzi, const TF* restrict dzhi)
+    {
+        const int ii = 1;
+        const double dxidxi = 1/(dx*dx);
+        const double dyidyi = 1/(dy*dy);
+
+        for (int k=kstart; k<kend; k++)
+            for (int j=jstart; j<jend; j++)
+                #pragma ivdep
+                for (int i=istart; i<iend; i++)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    at[ijk] += visc * (
+                            + ( (a[ijk+ii] - a[ijk   ])
+                              - (a[ijk   ] - a[ijk-ii]) ) * dxidxi
+                            + ( (a[ijk+jj] - a[ijk   ])
+                              - (a[ijk   ] - a[ijk-jj]) ) * dyidyi
+                            + ( (a[ijk+kk] - a[ijk   ]) * dzhi[k+1]
+                              - (a[ijk   ] - a[ijk-kk]) * dzhi[k]   ) * dzi[k] );
+                }
+    }
+
+    template<typename TF>
+    void molecular_diff_w(TF* restrict wt, const TF* restrict w, const TF visc,
+                const int istart, const int iend, const int jstart, const int jend, const int kstart, const int kend,
+                const int jj, const int kk, const TF dx, const TF dy, const TF* restrict dzi, const TF* restrict dzhi)
+    {
+        const int ii = 1;
+        const double dxidxi = 1/(dx*dx);
+        const double dyidyi = 1/(dy*dy);
+
+        for (int k=kstart+1; k<kend; k++)
+            for (int j=jstart; j<jend; j++)
+                #pragma ivdep
+                for (int i=istart; i<iend; i++)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    wt[ijk] += visc * (
+                            + ( (w[ijk+ii] - w[ijk   ])
+                              - (w[ijk   ] - w[ijk-ii]) ) * dxidxi
+                            + ( (w[ijk+jj] - w[ijk   ])
+                              - (w[ijk   ] - w[ijk-jj]) ) * dyidyi
+                            + ( (w[ijk+kk] - w[ijk   ]) * dzi[k]
+                              - (w[ijk   ] - w[ijk-kk]) * dzi[k-1] ) * dzhi[k] );
+                }
+    }
+    
     template <typename TF, Surface_model surface_model>
     void calc_strain2(
             TF* const restrict strain2,
@@ -476,7 +526,7 @@ namespace
                                    + fm::pow2(-uc[ijk+2*kk]+TF(4.0)*uc[ijk+kk]-TF(3.0)*uc[ijk])
                                    // dz**2*(dv/dz)**2 " "
                                    + fm::pow2(-vc[ijk+2*kk]+TF(4.0)*vc[ijk+kk]-TF(3.0)*vc[ijk]));
-                    TKEh[ijk] += Constants::dsmall;
+                    //TKEh[ijk] += Constants::dsmall;
                 }
         }
 
@@ -501,7 +551,7 @@ namespace
                                    + fm::pow2(vc[ijk+kk]-vc[ijk-kk]) );
 
                     // Add a small number to avoid zero divisions.
-                    TKEh[ijk] += Constants::dsmall;
+                    //TKEh[ijk] += Constants::dsmall;
                 }
         boundary_cyclic.exec(TKEh);
     }
@@ -535,7 +585,7 @@ namespace
                                    + fm::pow2(wc[ijk+jj]-wc[ijk-jj])
                                    // dz**2*(dw/dz)**2 2nd order differencing, but one-sided at sfc
                                    + fm::pow2(-wc[ijk+2*kk]+TF(4.0)*wc[ijk+kk]-TF(3.0)*wc[ijk]));
-                    TKEv[ijk] += Constants::dsmall;
+                    //TKEv[ijk] += Constants::dsmall;
                 }
         }
                 
@@ -554,7 +604,7 @@ namespace
                                    + fm::pow2(wc[ijk+kk]-wc[ijk-kk]));
 
                     // Add a small number to avoid zero divisions.
-                    TKEv[ijk] += Constants::dsmall;
+                    //TKEv[ijk] += Constants::dsmall;
                 }
         boundary_cyclic.exec(TKEv);
     }
@@ -589,7 +639,7 @@ namespace
                                    + fm::pow2(b[ijk+jj]-b[ijk-jj])
                                    // dz**2*(db/dz)**2 2nd order differencing, but one-sided at sfc
                                    + fm::pow2(-b[ijk+2*kk]+TF(4.0)*b[ijk+kk]-TF(3.0)*b[ijk]))/N2[ijk];
-                    TPE[ijk] += Constants::dsmall;
+                    //TPE[ijk] += Constants::dsmall;
                 }
         }
 
@@ -608,7 +658,7 @@ namespace
                                    + fm::pow2(b[ijk+kk]-b[ijk-kk]))/N2[ijk];
 
                     // Add a small number to avoid zero divisions.
-                    TPE[ijk] += Constants::dsmall;
+                    //TPE[ijk] += Constants::dsmall;
                 }
         boundary_cyclic.exec(TPE);
     }
@@ -669,15 +719,15 @@ namespace
                         for (int ix=-ih; ix<=ih; ++ix)
                                 for (int iy=-ih; iy<=ih; ++iy)
                                 {
-                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk],-0.5);
-                                    TF rootkvi = std::pow(TKEv[ijk],-0.5);
-                                    TF bScalei = dz[k]/TPE[ijk];
+                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
+                                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
+                                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
                                     x.index_put_({ijk, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
                                     x.index_put_({ijk, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
                                     x.index_put_({ijk, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
                                     x.index_put_({ijk, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
                                 }   
-                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}
+                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}*/
                 }
         
         std::vector<torch::jit::IValue> inputs;
@@ -696,20 +746,14 @@ namespace
                     TF kv = TKEv[ijk];
                     TF rootkkv =  std::pow(ktot*kv,0.5);
                     
-                    if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk))
-                    {
-                        std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;
-                        std::cout << ktot << std::endl;
-                        std::cout << kv << std::endl;
-                        std::cout << rootkkv << std::endl;
-                    }
+                    /*if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
                     Tau.index_put_({ijk, 0}, Tau.index({ijk, 0}) * ktot );
                     Tau.index_put_({ijk, 1}, Tau.index({ijk, 1}) * ktot );
                     Tau.index_put_({ijk, 2}, Tau.index({ijk, 2}) * rootkkv );
                     Tau.index_put_({ijk, 3}, Tau.index({ijk, 3}) * ktot );
                     Tau.index_put_({ijk, 4}, Tau.index({ijk, 4}) * rootkkv );
                     Tau.index_put_({ijk, 5}, Tau.index({ijk, 5}) * kv );
-                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}
+                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
                     
                 }
                 
@@ -744,37 +788,31 @@ namespace
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + kstart*kk;
+                    // first half level
+                    int ijk = i + j*jj + kstart*kk;
                     
+                    ut[ijk] +=
+                            // -dTau11/dx = 0 in surface layer by horizontal homogeneity assumption
+                            //-dxi*(T11[ijk+ii]-T11[ijk])
+                            // -dTau12/dy = 0 in surface layer by horizontal homogeneity assumption
+                            //-TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
+                             // -dTau13/dz
+                            -(TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
+                    
+                    // second half level        
+                    ijk = i + j*jj + (kstart+1)*kk;
+                    const TF T13_1 = fluxbot[ij]+(z[kstart]-zh[kstart])*(TF(0.5)*(T13[ijk]+T13[ijk+ii])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
                     ut[ijk] +=
                             // -dTau11/dx
                             -dxi*(T11[ijk+ii]-T11[ijk])
                             // -dTau12/dy
                             -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
-                             // -dTau13/dz
-                            -TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk]-fluxbot[ijk]-fluxbot[ijk+ii])/(z[kstart+1]-zh[kstart]);
+                             // -dTau13/dz                             
+                            -(TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk])-T13_1)/(z[kstart+2]-z[kstart]);
                 }
-
-            // top boundary
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + (kend-1)*kk;
-                    
-                    ut[ijk] +=
-                            // -dTau11/dx
-                            -dxi*(T11[ijk+ii]-T11[ijk])
-                            // -dTau12/dy
-                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
-                             // -dTau13/dz
-                            -TF(0.5)*(fluxtop[ijk+kk]+fluxtop[ijk+ii+kk]-T13[ijk]-T13[ijk+ii])/(zh[kend]-z[kend-1]);
-
-                  }
         }
 
-        for (int k=kstart+k_offset; k<kend-k_offset; ++k)
+        for (int k=kstart+k_offset+1; k<kend-k_offset; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -787,8 +825,21 @@ namespace
                             // -dTau12/dy
                             -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
                              // -dTau13/dz
-                            -TF(0.5)*(z[k+1]-z[k-1])*(T13[ijk+kk]+T13[ijk+ii+kk]-T12[ijk-kk]-T13[ijk+ii-kk]); 
+                            -TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk]-T13[ijk-kk]-T13[ijk+ii-kk])/(z[k+1]-z[k-1]); 
                 }
+        
+         // top boundary ignored because no constraint on flux out the top
+            /*for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {  const int ij  = i + j*jj;
+                   const int ijk = i + j*jj + (kend-1)*kk;
+                   ut[ijk] += // -dTau11/dx
+                            -dxi*(T11[ijk+ii]-T11[ijk])
+                            // -dTau12/dy
+                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]); 
+                             // -dTau13/dz
+                            -(fluxtop[ij]-TF(0.5)*(T13[ijk]+T13[ijk+ii]))/(zh[kend]-z[kend-1]);}*/
     }
 
     template <typename TF, Surface_model surface_model>
@@ -820,34 +871,27 @@ namespace
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + kstart*kk;
+                    int ijk = i + j*jj + kstart*kk;
                     
+                    vt[ijk] += 
+                            // -dTau21/dx = 0 in surface layer by horizontal homogeneity assumption
+                            //-TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
+                            // -dTau22/dy = 0 in surface layer by horizontal homogeneity assumption
+                            //-dyi*(T22[ijk+jj]-T22[ijk]) 
+                             // -dTau23/dz
+                            -(TF(0.5)*(T23[ijk+kk]+T23[ijk+jj+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
+
+                    // second half level        
+                    ijk = i + j*jj + (kstart+1)*kk;
+                    const TF T23_1 = fluxbot[ij]+(z[kstart]-zh[kstart])*(TF(0.5)*(T23[ijk]+T23[ijk+ii])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
                     vt[ijk] +=
                             // -dTau21/dx
                             -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
                             // -dTau22/dy
                             -dyi*(T22[ijk+jj]-T22[ijk]) 
-                             // -dTau23/dz
-                            -TF(0.5)*(T23[ijk+kk]+T23[ijk+jj+kk]-fluxbot[ijk]-fluxbot[ijk+jj])/(z[kstart+1]-zh[kstart]);
+                             // -dTau23/dz                           
+                            -(TF(0.5)*(T23[ijk+kk]+T23[ijk+ii+kk])-T23_1)/(z[kstart+2]-z[kstart]);                            
                 }
-
-            // top boundary
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + (kend-1)*kk;
-                    
-                    vt[ijk] +=
-                           // -dTau21/dx
-                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
-                            // -dTau22/dy
-                            -dyi*(T22[ijk+jj]-T22[ijk]) 
-                             // -dTau23/dz
-                            -TF(0.5)*(fluxtop[ijk+kk]+fluxtop[ijk+jj+kk]-T23[ijk]-T23[ijk+jj])/(zh[kend]-z[kend-1]);
-
-                  }
         }
 
         for (int k=kstart+k_offset; k<kend-k_offset; ++k)
@@ -865,6 +909,19 @@ namespace
                              // -dTau23/dz
                             -TF(0.5)*(T23[ijk+kk]+T23[ijk+jj+kk]-T23[ijk-kk]-T23[ijk+jj-kk])/(z[k+1]-z[k-1]); 
                 }
+         
+        // top boundary ignored because no constraint on flux out the top
+            /*for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {   const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + (kend-1)*kk;
+                    vt[ijk] += // -dTau21/dx
+                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
+                            // -dTau22/dy
+                            -dyi*(T22[ijk+jj]-T22[ijk]);
+                             // -dTau23/dz
+                            -(fluxtop[ij]-TF(0.5)*(T23[ijk]+T23[ijk+jj]))/(zh[kend]-z[kend-1]);}*/        
     }
 
     template <typename TF>
@@ -900,24 +957,6 @@ namespace
                              // -dTau33/dz
                             -T33[ijk]/(z[kstart+1]-zh[kstart]);
                 }
-
-            // first below top boundary
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-
-                    const int ijk = i + j*jj + (kend-1)*kk;
-                    
-                    wt[ijk] +=
-                           // -dTau31/dx
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii+kk]-T13[ijk-ii]-T13[ijk-ii+kk])
-                            // -dTau32/dy
-                            -TF(0.25)*dxi*(T23[ijk+jj]+T23[ijk+jj+kk]-T23[ijk-jj]-T23[ijk-jj+kk])
-                             // -dTau33/dz
-                            -T33[ijk]/(zh[kend]-z[kend-1]);
-
-                  }
         }
 
         for (int k=kstart+1; k<kend-1; ++k)
@@ -935,6 +974,18 @@ namespace
                              // -dTau33/dz
                             -(T33[ijk+kk]-T33[ijk-kk])/(z[k+1]-z[k-1]); 
                 }
+        
+        // top boundary
+            /*for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {const int ijk = i + j*jj + (kend-1)*kk;
+                    wt[ijk] += // -dTau31/dx
+                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii+kk]-T13[ijk-ii]-T13[ijk-ii+kk])
+                            // -dTau32/dy
+                            -TF(0.25)*dxi*(T23[ijk+jj]+T23[ijk+jj+kk]-T23[ijk-jj]-T23[ijk-jj+kk]);
+                             // -dTau33/dz
+                            -T33[ijk]/(zh[kend]-z[kend-1]);}*/
     }
 
     template <typename TF, Surface_model surface_model>
@@ -1186,12 +1237,12 @@ namespace
             Boundary_cyclic<TF>& boundary_cyclic)
     {
                
-        const TF* flux = Tau.slice(1, dim, dim+1).data_ptr<TF>();
-        //if (dim==2){std::cout << Tau.slice(1, dim, dim+1) << std::endl;}
+        const TF* flux = Tau.slice(1, dim, dim+1).contiguous().data_ptr<TF>();
+
         const int jj = icells;
         const int kk = ijcells;
         
-        for (int k=kstart+1; k<kend; ++k)    
+        for (int k=kstart; k<kend; ++k)    
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -1200,11 +1251,11 @@ namespace
                     const int ijk = i + j*jj + k*kk;
 
                     flux_fld[ijk] = flux[ijk];
-                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk))
+                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk))
                     {
                         std::cout << flux[ijk] << std::endl;
                         std::cout << flux_fld[ijk] << std::endl;
-                    }
+                    }*/
                 }
               
         boundary_cyclic.exec(flux_fld);
@@ -1325,7 +1376,26 @@ template<typename TF>
 void Diff_dnn<TF>::exec(Stats<TF>& stats)
 {
     auto& gd = grid.get_grid_data();
+    
+    molecular_diff_c<TF>(fields.mt.at("u")->fld.data(), fields.mp.at("u")->fld.data(), fields.visc,
+               gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend, gd.icells, gd.ijcells,
+               gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
 
+    molecular_diff_c<TF>(fields.mt.at("v")->fld.data(), fields.mp.at("v")->fld.data(), fields.visc,
+               gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend, gd.icells, gd.ijcells,
+               gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
+
+    molecular_diff_w<TF>(fields.mt.at("w")->fld.data(), fields.mp.at("w")->fld.data(), fields.visc,
+               gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend, gd.icells, gd.ijcells,
+               gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
+    
+    /*for (auto it : fields.st) //Don't need this because molecular visc added to Smag eddy visc
+        {
+            molecular_diff_c<TF>(it.second->fld.data(), fields.sp.at(it.first)->fld.data(),fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend, gd.icells, gd.ijcells,
+                gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
+        }*/
+    
     if (boundary.get_switch() != "default")
     {
         diff_u<TF, Surface_model::Enabled>(
@@ -1607,10 +1677,8 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     gd.kstart, gd.kend,
                     gd.icells, gd.ijcells);
         
-    int ijk=gd.iend/2+ (gd.jend/2)*gd.icells + (gd.kend/3)*gd.ijcells;
-    std::cout << Tau.index({ijk}) << std::endl; 
-    //std::cout << Tau.slice(1, 0, 1).data_ptr<TF>() << std::endl;
-    
+    /*int ijk=gd.iend/2+ (gd.jend/2)*gd.icells + (gd.kend/3)*gd.ijcells;
+    std::cout << Tau.index({ijk}) << std::endl; */
       
     set_flux<TF>(fields.sd.at("T11")->fld.data(),Tau,0,
                     gd.istart, gd.iend,
