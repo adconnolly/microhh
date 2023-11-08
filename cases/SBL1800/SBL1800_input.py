@@ -7,7 +7,7 @@ import netCDF4 as nc
 
 # set the height
 #kmax  = 3328
-kmax = 6
+kmax = 64
 zsize = 18.074844397670482
 dz = zsize / kmax
 
