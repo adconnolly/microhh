@@ -20,8 +20,8 @@
  * along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef DIFF_DNN_H
-#define DIFF_DNN_H
+#ifndef DIFF_DNN_GLOBAL_H
+#define DIFF_DNN_GLOBAL_H
 
 #include "diff.h"
 #include "boundary_cyclic.h"
@@ -33,11 +33,11 @@ template<typename> class Stats;
 
 
 template<typename TF>
-class Diff_dnn : public Diff<TF>
+class Diff_dnn_global : public Diff<TF>
 {
     public:
-        Diff_dnn(Master&, Grid<TF>&, Fields<TF>&, Boundary<TF>&, Input&);
-        ~Diff_dnn();
+        Diff_dnn_global(Master&, Grid<TF>&, Fields<TF>&, Boundary<TF>&, Input&);
+        ~Diff_dnn_global();
 
         Diffusion_type get_switch() const;
         unsigned long get_time_limit(unsigned long, double);
@@ -65,7 +65,7 @@ class Diff_dnn : public Diff<TF>
 
         using Diff<TF>::tPr;
 
-        const Diffusion_type swdiff = Diffusion_type::Diff_dnn;
+        const Diffusion_type swdiff = Diffusion_type::Diff_dnn_global;
 
         void create_stats(Stats<TF>&);
 
@@ -78,7 +78,12 @@ class Diff_dnn : public Diff<TF>
         
         double ce; // for the TKE based estimate of eddy viscosity, not using currently
         TF lgrid;
-       
+        double Re;
+        double Ug;
+        double b0;
+        TF ivel_scale; 
+        TF stress_scale; 
+        TF ib_scale;    
         //torch::Tensor Tau;
         at::Tensor Tau;
         std::string dnnpath;
