@@ -422,6 +422,7 @@ namespace
     void destagger_u(
             TF* const restrict uc,
             const TF* const restrict u,
+            const Grid_order spatial_order,
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
@@ -430,15 +431,25 @@ namespace
     {
         
         const int ii = 1;
-
-        for (int k=kstart; k<kend; ++k)
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ijk = i + j*jj + k*kk;
-                    uc[ijk] = TF(0.5)*(u[ijk+ii]+u[ijk]);
-                }
+        if (spatial_order == Grid_order::Fourth)
+            for (int k=kstart; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk = i + j*jj + k*kk;
+                        uc[ijk] = (u[ijk+ii+ii]+u[ijk-ii])/TF(6.)+(u[ijk+ii]+u[ijk])/TF(3.);
+                    }
+        else
+            for (int k=kstart; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk = i + j*jj + k*kk;
+                        uc[ijk] = TF(0.5)*(u[ijk+ii]+u[ijk]);
+                    }
+        
         boundary_cyclic.exec(uc);
     }
     
@@ -446,6 +457,7 @@ namespace
     void destagger_v(
             TF* const restrict vc,
             const TF* const restrict v,
+            const Grid_order spatial_order,
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
@@ -453,16 +465,24 @@ namespace
             Boundary_cyclic<TF>& boundary_cyclic)
     {
         
-        const int ii = 1;
-
-        for (int k=kstart; k<kend; ++k)
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ijk = i + j*jj + k*kk;
-                    vc[ijk] = TF(0.5)*(v[ijk+jj]+v[ijk]);
-                }
+        if (spatial_order == Grid_order::Fourth)
+            for (int k=kstart; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk = i + j*jj + k*kk;
+                        vc[ijk] = (v[ijk+jj+jj]+v[ijk-jj])/TF(6.)+(v[ijk+jj]+v[ijk])/TF(3.);
+                    }
+        else
+             for (int k=kstart; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ijk = i + j*jj + k*kk;
+                        vc[ijk] = TF(0.5)*(v[ijk+jj]+v[ijk]);
+                    }
         boundary_cyclic.exec(vc);
     }
     
@@ -479,7 +499,7 @@ namespace
         
         const int ii = 1;
 
-        for (int k=kstart; k<kend-1; ++k)
+        for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -503,7 +523,7 @@ namespace
     {
         const int ii = 1;
         const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-        
+        /* Can't use DNN at first grid level, so no need to compute scaling factors here
         if (surface_model == Surface_model::Enabled)
         {
             for (int j=jstart; j<jend; ++j)
@@ -528,7 +548,7 @@ namespace
                                    + fm::pow2(-vc[ijk+2*kk]+TF(4.0)*vc[ijk+kk]-TF(3.0)*vc[ijk]));
                     //TKEh[ijk] += Constants::dsmall;
                 }
-        }
+        }*/
 
         for (int k=kstart+k_offset; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
@@ -568,7 +588,7 @@ namespace
     {
         const int ii = 1;
         const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-        
+        /* Can't use DNN at first grid level, so no need to compute scaling factors here
         if (surface_model == Surface_model::Enabled)
         {
             for (int j=jstart; j<jend; ++j)
@@ -587,7 +607,7 @@ namespace
                                    + fm::pow2(-wc[ijk+2*kk]+TF(4.0)*wc[ijk+kk]-TF(3.0)*wc[ijk]));
                     //TKEv[ijk] += Constants::dsmall;
                 }
-        }
+        }*/
                 
         for (int k=kstart+k_offset; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
@@ -622,7 +642,7 @@ namespace
     {
         const int ii = 1;
         const int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-        
+        /* Can't use DNN at first grid level, so no need to compute scaling factors here
         if (surface_model == Surface_model::Enabled)
         {
             for (int j=jstart; j<jend; ++j)
@@ -641,7 +661,7 @@ namespace
                                    + fm::pow2(-b[ijk+2*kk]+TF(4.0)*b[ijk+kk]-TF(3.0)*b[ijk]))/N2[ijk];
                     //TPE[ijk] += Constants::dsmall;
                 }
-        }
+        }*/
 
         for (int k=kstart+k_offset; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
@@ -675,7 +695,7 @@ namespace
             const TF* const restrict TPE,
             const TF* const restrict dz,
             const int nh,
-            const int nbatch,
+            const int ncells,
             const int istart, const int iend,
             const int jstart, const int jend,
             const int kstart, const int kend,
@@ -688,15 +708,22 @@ namespace
         const int iv = nv/2; 
         const int ih = nh/2;
         const int nbox = nv*nh*nh;
-
+        const int kendBL = kstart+(3*(kend-kstart))/4;
+        
+        const int jjbatch = iend-istart;
+        const int kkbatch = jjbatch*(jend-jstart);
+        
+        const int nbatch = kkbatch*(kendBL-1-kstart-k_offset);
+        
         at::Tensor x = torch::zeros({nbatch, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
 
-        for (int k=kstart+k_offset; k<kend; ++k)
+        for (int k=kstart+k_offset; k<kendBL-1; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                                        
                     TF ubar = 0;
                     TF vbar = 0;
@@ -722,12 +749,13 @@ namespace
                                     TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
                                     TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
                                     TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
-                                    x.index_put_({ijk, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
-                                    x.index_put_({ijk, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
-                                    x.index_put_({ijk, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
-                                    x.index_put_({ijk, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
-                                }   
-                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}*/
+                                    x.index_put_({ijkbatch, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
+                                    x.index_put_({ijkbatch, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
+                                    x.index_put_({ijkbatch, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
+                                    x.index_put_({ijkbatch, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
+                                }
+                    /*if (ijkbatch==4){std::cout << x.slice(0, 0,4) << std::endl;}
+                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}*/
                 }
         
         std::vector<torch::jit::IValue> inputs;
@@ -735,31 +763,127 @@ namespace
   
         at::Tensor Tau = dnn.forward(inputs).toTensor();
 
-        for (int k=kstart+k_offset; k<kend; ++k)
+        for (int k=kstart+k_offset; k<kendBL-1; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                     
                     TF ktot = TKEh[ijk]+TKEv[ijk];
                     TF kv = TKEv[ijk];
                     TF rootkkv =  std::pow(ktot*kv,0.5);
                     
-                    /*if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
-                    Tau.index_put_({ijk, 0}, Tau.index({ijk, 0}) * ktot );
-                    Tau.index_put_({ijk, 1}, Tau.index({ijk, 1}) * ktot );
-                    Tau.index_put_({ijk, 2}, Tau.index({ijk, 2}) * rootkkv );
-                    Tau.index_put_({ijk, 3}, Tau.index({ijk, 3}) * ktot );
-                    Tau.index_put_({ijk, 4}, Tau.index({ijk, 4}) * rootkkv );
-                    Tau.index_put_({ijk, 5}, Tau.index({ijk, 5}) * kv );
-                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
+                    /*if (ijkbatch==4) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
+                    if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
+                    Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ktot );
+                    Tau.index_put_({ijkbatch, 1}, Tau.index({ijkbatch, 1}) * ktot );
+                    Tau.index_put_({ijkbatch, 2}, Tau.index({ijkbatch, 2}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ktot );
+                    Tau.index_put_({ijkbatch, 4}, Tau.index({ijkbatch, 4}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * kv );
+                    /*if (ijkbatch==04) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
+                    if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
                     
                 }
                 
         return Tau.to(torch::kDouble);
     }
 
+    template<typename TF>
+    void set_flux(
+            TF* const restrict flux_fld,
+            TF* const restrict fluxtop,
+            const at::Tensor Tau,
+            const int dim,
+            const TF* const restrict fluxbot,
+            const TF* const restrict z,
+            const TF* const restrict zh,
+            const int istart, const int iend,
+            const int jstart, const int jend,
+            const int kstart, const int kend,
+            const int icells, const int ijcells,
+            Boundary_cyclic<TF>& boundary_cyclic)
+    {
+        //using namespace torch::indexing;       
+        //const TF* flux = Tau.slice(1, dim, dim+1).contiguous().data_ptr<TF>();
+        auto tau = Tau.accessor<TF,2>();
+
+        const int ii = 1;
+        const int jj = icells;
+        const int kk = ijcells;
+        const int jjbatch = iend-istart;
+        const int kkbatch = jjbatch*(jend-jstart);
+        const int kendBL = kstart+(3*(kend-kstart))/4;
+        
+        for (int k=kstart+1; k<kendBL-1; ++k)    
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-1)*kkbatch;
+
+                    flux_fld[ijk] = tau[ijkbatch][dim];//if(dim==0 or dim==3 or dim==5){flux_fld[ijk] = std::max(0,flux_fld[ijk]);
+                }
+       
+        // First half-level 
+        if (dim==2){
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {    
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + (kstart)*kk;
+                    // Linearly interpolating Tau_13 from surface flux values
+                    flux_fld[ijk] = TF(0.5)*(fluxbot[ij]+fluxbot[ij+ii]) // destaggering to cell centers
+                                    +(z[kstart]-zh[kstart])*(flux_fld[ijk+kk]-TF(0.5)*(fluxbot[ij]+fluxbot[ij+ii]))
+                                        /(z[kstart+1]-zh[kstart]);
+                }}
+        
+        else if (dim==4){
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {    
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + (kstart)*kk;
+                    // Linearly interpolating Tau_23 from surface flux values
+                    flux_fld[ijk] = TF(0.5)*(fluxbot[ij]+fluxbot[ij+jj]) // destaggering to cell centers
+                                    +(z[kstart]-zh[kstart])*(flux_fld[ijk+kk]-TF(0.5)*(fluxbot[ij]+fluxbot[ij+jj]))
+                                        /(z[kstart+1]-zh[kstart]);
+                }}
+        else{
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {    
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + (kstart)*kk;
+                    // Linearly interpolating all other components from tau11=tau12=tau22=tau33=0 at surface 
+                    flux_fld[ijk] = (z[kstart]-zh[kstart])*(flux_fld[ijk+kk])/(z[kstart+1]-zh[kstart]);
+                }}
+        
+        // Top BC
+        for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+            for (int i=istart; i<iend; ++i)
+            {
+                const int ij  = i + j*jj;
+                const int ijk = i + j*jj + (kendBL-1)*kk;
+                //const int ijk = i + j*jj + kendBL*kk;
+                
+                // Can't compute at top, so set gradient to zero
+                flux_fld[ijk] = flux_fld[ijk-kk]; // these are only levels that get touched in diff_* but could fill all, or
+                flux_fld[ijk+kk] = flux_fld[ijk]; // If fluxtop is known somehow, change this to interpolation
+                if (dim==2 or dim==4)
+                    fluxtop[ij] = flux_fld[ijk]; // 2 is Tau13, 4 is Tau23, this is wrong staggering but never used so fix later
+            }
+        if(dim==2 or dim==4){boundary_cyclic.exec_2d(fluxtop);}
+        boundary_cyclic.exec(flux_fld);
+    } 
+    
     template <typename TF, Surface_model surface_model>
     void diff_u(
             TF* const restrict ut,
@@ -777,7 +901,7 @@ namespace
             const int jj, const int kk)
     {
         constexpr int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-
+        const int kendBL = kstart+(3*(kend-kstart))/4;
         const int ii = 1;
 
         if (surface_model == Surface_model::Enabled)
@@ -789,30 +913,21 @@ namespace
                 {
                     const int ij  = i + j*jj;
                     // first half level
-                    int ijk = i + j*jj + kstart*kk;
+                    const int ijk = i + j*jj + kstart*kk;
                     
                     ut[ijk] +=
                             // -dTau11/dx = 0 in surface layer by horizontal homogeneity assumption
-                            //-dxi*(T11[ijk+ii]-T11[ijk])
-                            // -dTau12/dy = 0 in surface layer by horizontal homogeneity assumption
-                            //-TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
-                             // -dTau13/dz
-                            -(TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
-                    
-                    // second half level        
-                    ijk = i + j*jj + (kstart+1)*kk;
-                    const TF T13_1 = fluxbot[ij]+(z[kstart]-zh[kstart])*(TF(0.5)*(T13[ijk]+T13[ijk+ii])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
-                    ut[ijk] +=
-                            // -dTau11/dx
                             -dxi*(T11[ijk+ii]-T11[ijk])
-                            // -dTau12/dy
+                            // -dTau12/dy = 0 in surface layer by horizontal homogeneity assumption
                             -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
-                             // -dTau13/dz                             
-                            -(TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk])-T13_1)/(z[kstart+2]-z[kstart]);
+                             // -dTau13/dz
+                            -(TF(0.5)*(T13[ijk+kk]+T13[ijk-ii+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
+                    
+                    // second half level, interpolation happens in set_flux so don't handle separately here        
                 }
         }
 
-        for (int k=kstart+k_offset+1; k<kend-k_offset; ++k)
+        for (int k=kstart+k_offset; k<kendBL; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -821,25 +936,19 @@ namespace
                     
                     ut[ijk] +=
                              // -dTau11/dx
-                            -dxi*(T11[ijk+ii]-T11[ijk])
+                            -dxi*(T11[ijk]-T11[ijk-ii])
                             // -dTau12/dy
-                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
+                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk-ii+jj]-T12[ijk-jj]-T12[ijk-ii-jj]) 
                              // -dTau13/dz
-                            -TF(0.5)*(T13[ijk+kk]+T13[ijk+ii+kk]-T13[ijk-kk]-T13[ijk+ii-kk])/(z[k+1]-z[k-1]); 
+                            -TF(0.5)*(T13[ijk+kk]+T13[ijk-ii+kk]-T13[ijk-kk]-T13[ijk-ii-kk])/(z[k+1]-z[k-1]); 
                 }
         
-         // top boundary ignored because no constraint on flux out the top
-            /*for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {  const int ij  = i + j*jj;
-                   const int ijk = i + j*jj + (kend-1)*kk;
-                   ut[ijk] += // -dTau11/dx
-                            -dxi*(T11[ijk+ii]-T11[ijk])
-                            // -dTau12/dy
-                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]); 
-                             // -dTau13/dz
-                            -(fluxtop[ij]-TF(0.5)*(T13[ijk]+T13[ijk+ii]))/(zh[kend]-z[kend-1]);}*/
+         // DNN turned off above boundary layer
+             /*for (int k=kendBL; k<kend-1; ++k)
+               ...
+             const int ijk = i + j*jj + (kend-1)*kk;
+                   ut[ijk] += ... -(fluxtop[ij]-TF(0.5)*(T13[ijk]+T13[ijk+ii]))/(zh[kend]-z[kend-1]);} // -dTau13/dz
+            */              
     }
 
     template <typename TF, Surface_model surface_model>
@@ -860,7 +969,8 @@ namespace
 
     {
         constexpr int k_offset = (surface_model == Surface_model::Disabled) ? 0 : 1;
-
+        const int kendBL = kstart+(3*(kend-kstart))/4;
+        
         const int ii = 1;
 
         if (surface_model == Surface_model::Enabled)
@@ -874,27 +984,18 @@ namespace
                     int ijk = i + j*jj + kstart*kk;
                     
                     vt[ijk] += 
-                            // -dTau21/dx = 0 in surface layer by horizontal homogeneity assumption
-                            //-TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
-                            // -dTau22/dy = 0 in surface layer by horizontal homogeneity assumption
-                            //-dyi*(T22[ijk+jj]-T22[ijk]) 
-                             // -dTau23/dz
-                            -(TF(0.5)*(T23[ijk+kk]+T23[ijk+jj+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
-
-                    // second half level        
-                    ijk = i + j*jj + (kstart+1)*kk;
-                    const TF T23_1 = fluxbot[ij]+(z[kstart]-zh[kstart])*(TF(0.5)*(T23[ijk]+T23[ijk+ii])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
-                    vt[ijk] +=
-                            // -dTau21/dx
+                            //-dTau21/dx
                             -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
                             // -dTau22/dy
                             -dyi*(T22[ijk+jj]-T22[ijk]) 
-                             // -dTau23/dz                           
-                            -(TF(0.5)*(T23[ijk+kk]+T23[ijk+ii+kk])-T23_1)/(z[kstart+2]-z[kstart]);                            
+                             // -dTau23/dz
+                            -(TF(0.5)*(T23[ijk+kk]+T23[ijk-jj+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
+
+                    //second half level, interpolation happens in set_flux so don't handle separately here
                 }
         }
 
-        for (int k=kstart+k_offset; k<kend-k_offset; ++k)
+        for (int k=kstart+k_offset; k<kendBL; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -903,25 +1004,19 @@ namespace
                     
                     vt[ijk] +=
                             // -dTau21/dx
-                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
+                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii-jj]-T12[ijk-ii]-T12[ijk-ii-jj])
                             // -dTau22/dy
-                            -dyi*(T22[ijk+jj]-T22[ijk]) 
+                            -dyi*(T22[ijk]-T22[ijk-jj]) 
                              // -dTau23/dz
-                            -TF(0.5)*(T23[ijk+kk]+T23[ijk+jj+kk]-T23[ijk-kk]-T23[ijk+jj-kk])/(z[k+1]-z[k-1]); 
+                            -TF(0.5)*(T23[ijk+kk]+T23[ijk-jj+kk]-T23[ijk-kk]-T23[ijk-jj-kk])/(z[k+1]-z[k-1]); 
                 }
          
-        // top boundary ignored because no constraint on flux out the top
-            /*for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {   const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + (kend-1)*kk;
-                    vt[ijk] += // -dTau21/dx
-                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
-                            // -dTau22/dy
-                            -dyi*(T22[ijk+jj]-T22[ijk]);
-                             // -dTau23/dz
-                            -(fluxtop[ij]-TF(0.5)*(T23[ijk]+T23[ijk+jj]))/(zh[kend]-z[kend-1]);}*/        
+        // DNN turned off above boundary layer
+             /*for (int k=kendBL; k<kend-1; ++k)
+               ...
+             const int ijk = i + j*jj + (kend-1)*kk;
+                    vt[ijk] += -(fluxtop[ij]-TF(0.5)*(T23[ijk]+T23[ijk+jj]))/(zh[kend]-z[kend-1]);} // -dTau23/dz
+            */        
     }
 
     template <typename TF>
@@ -930,6 +1025,8 @@ namespace
             const TF* const restrict T13,
             const TF* const restrict T23,
             const TF* const restrict T33,
+            const TF* const restrict ufluxbot,
+            const TF* const restrict vfluxbot,
             const TF* const restrict z,
             const TF* const restrict zh,
             const TF dxi, const TF dyi,
@@ -939,27 +1036,9 @@ namespace
             const int jj, const int kk)
     {
         const int ii = 1;
+        const int kendBL = kstart+(3*(kend-kstart))/4;
 
-        if (1)
-        {
-            // first above bottom boundary
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {    
-                    
-                    const int ijk = i + j*jj + (kstart+1)*kk;
-                    wt[ijk] +=
-                            // -dTau31/dx
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii+kk]-T13[ijk-ii]-T13[ijk-ii+kk])
-                            // -dTau32/dy
-                            -TF(0.25)*dxi*(T23[ijk+jj]+T23[ijk+jj+kk]-T23[ijk-jj]-T23[ijk-jj+kk])
-                             // -dTau33/dz
-                            -T33[ijk]/(z[kstart+1]-zh[kstart]);
-                }
-        }
-
-        for (int k=kstart+1; k<kend-1; ++k)
+        for (int k=kstart+2; k<kendBL; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -968,24 +1047,46 @@ namespace
                     
                     wt[ijk] +=
                             // -dTau31/dx
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii+kk]-T13[ijk-ii]-T13[ijk-ii+kk])
+                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii-kk]-T13[ijk-ii]-T13[ijk-ii-kk])
                             // -dTau32/dy
-                            -TF(0.25)*dxi*(T23[ijk+jj]+T23[ijk+jj+kk]-T23[ijk-jj]-T23[ijk-jj+kk])
+                            -TF(0.25)*dyi*(T23[ijk+jj]+T23[ijk+jj-kk]-T23[ijk-jj]-T23[ijk-jj-kk])
                              // -dTau33/dz
-                            -(T33[ijk+kk]-T33[ijk-kk])/(z[k+1]-z[k-1]); 
+                            -(T33[ijk]-T33[ijk-kk])/(z[k]-z[k-1]); 
                 }
-        
-        // top boundary
-            /*for (int j=jstart; j<jend; ++j)
+
+        // first above bottom boundary
+        // Though we can interpolate using the surface flux values for some of the terms below, 
+        // proably best to just assume -dTau31/dx = -dTau32/dy = 0 by horizontal homeogeneity 
+        // -dTau33/dz = 0 is harder to justify, but perhaps follows from divergence-free constraints 
+        // In any case, just turning off this block of code but saving to turn on later maybe
+        if (0)             
+        {   for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
-                {const int ijk = i + j*jj + (kend-1)*kk;
-                    wt[ijk] += // -dTau31/dx
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii+kk]-T13[ijk-ii]-T13[ijk-ii+kk])
-                            // -dTau32/dy
-                            -TF(0.25)*dxi*(T23[ijk+jj]+T23[ijk+jj+kk]-T23[ijk-jj]-T23[ijk-jj+kk]);
-                             // -dTau33/dz
-                            -T33[ijk]/(zh[kend]-z[kend-1]);}*/
+                {    
+                    const int ij = i + j*jj;
+                    const int ijk = i + j*jj + (kstart+1)*kk;
+                    wt[ijk] +=
+                            // -dTau31/dx , interpolation happens in set_flux so don't handle separately here
+                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii-kk]-T13[ijk-ii]-T13[ijk-ii-kk])
+                            // -dTau32/dy , interpolation happens in set_flux so don't handle separately here
+                            -TF(0.25)*dyi*(T23[ijk+jj]+T23[ijk+jj-kk]-T23[ijk-jj]-T23[ijk-jj-kk]);
+                             // -dTau33/dz  
+                            /* Can't do centered differnce, b/c don't have <w'w'> at surface as we do <u'w'>, <v'w'> from MOST
+                               One-side difference with zero fluz at surface?
+                                   -T33[ijk]/(z[kstart+1]-zh[kstart]);
+                                       maybe but probably can't argue <w'w'>=0 at surface by no flux
+                                       in the same way we can't argue <u'w'> = 0 at surface by no slip
+                                Zero Neumann i.e enforcing dTau33/dz = 0 in surface layer? 
+                                    Implement by doing nothing here, 
+                                    can't really justify that physically, but also can't justify the linear interpolation 
+                            */
+                    }
+            }
+    
+        // DNN turned off above boundary layer
+             /*for (int k=kendBL; k<kend-1; ++k)   ...
+             const int ijk = i + j*jj + (kend-1)*kk; */
     }
 
     template <typename TF, Surface_model surface_model>
@@ -1213,54 +1314,6 @@ namespace
             }
     }
 
-    /*template<typename TF>
-    void set_flux(
-            TF* flux_fld,
-            const at::Tensor Tau,
-            const int dim,
-            Boundary_cyclic<TF>& boundary_cyclic)
-    {
-               
-        flux_fld = Tau.slice(1, dim, dim+1).data_ptr<TF>();
-        boundary_cyclic.exec(flux_fld);
-    } */
-    
-   template<typename TF>
-    void set_flux(
-            TF* const restrict flux_fld,
-            const at::Tensor Tau,
-            const int dim,
-            const int istart, const int iend,
-            const int jstart, const int jend,
-            const int kstart, const int kend,
-            const int icells, const int ijcells,
-            Boundary_cyclic<TF>& boundary_cyclic)
-    {
-               
-        const TF* flux = Tau.slice(1, dim, dim+1).contiguous().data_ptr<TF>();
-
-        const int jj = icells;
-        const int kk = ijcells;
-        
-        for (int k=kstart; k<kend; ++k)    
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ij  = i + j*jj;
-                    const int ijk = i + j*jj + k*kk;
-
-                    flux_fld[ijk] = flux[ijk];
-                    /*if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk))
-                    {
-                        std::cout << flux[ijk] << std::endl;
-                        std::cout << flux_fld[ijk] << std::endl;
-                    }*/
-                }
-              
-        boundary_cyclic.exec(flux_fld);
-    } 
-
 } // End namespace.
 
 template<typename TF>
@@ -1295,8 +1348,8 @@ Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin,
     fields.init_diagnostic_field("wc", "Destaggered w velocity", "m s-1", group_name, gd.sloc);
 
         
-    if (grid.get_spatial_order() != Grid_order::Second)
-        throw std::runtime_error("Diff_dnn only runs with second order grids");
+/*    if (grid.get_spatial_order() != Grid_order::Second)
+        throw std::runtime_error("Diff_dnn only runs with second order grids");*/
 }
 
 template<typename TF>
@@ -1377,6 +1430,108 @@ void Diff_dnn<TF>::exec(Stats<TF>& stats)
 {
     auto& gd = grid.get_grid_data();
     
+    if (boundary.get_switch() != "default")
+    {    
+    set_flux<TF>(fields.sd.at("T11")->fld.data(),nullptr,
+                    Tau,0,
+                    nullptr,
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T12")->fld.data(),nullptr,
+                    Tau,1,
+                    nullptr,
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T13")->fld.data(),fields.mp.at("u")->flux_top.data(),
+                    Tau,2,
+                    fields.mp.at("u")->flux_bot.data(),
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T22")->fld.data(),nullptr,
+                    Tau,3,
+                    nullptr,
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T23")->fld.data(),fields.mp.at("v")->flux_top.data(),
+                    Tau,4,
+                    fields.mp.at("v")->flux_bot.data(),
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic);
+    set_flux<TF>(fields.sd.at("T33")->fld.data(),nullptr,
+                    Tau,5,
+                    nullptr,
+                    gd.z.data(), gd.zh.data(),
+                    gd.istart, gd.iend,
+                    gd.jstart, gd.jend,
+                    gd.kstart, gd.kend,
+                    gd.icells, gd.ijcells,
+                    boundary_cyclic); 
+
+    diff_u<TF, Surface_model::Enabled>(
+                fields.mt.at("u")->fld.data(),
+                fields.sd.at("T11")->fld.data(), fields.sd.at("T12")->fld.data(), fields.sd.at("T13")->fld.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                //fields.sd.at("evisc")->fld.data(),
+                fields.mp.at("u")->flux_bot.data(), fields.mp.at("u")->flux_top.data(),
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+    diff_v<TF, Surface_model::Enabled>(
+                fields.mt.at("v")->fld.data(),
+                fields.sd.at("T12")->fld.data(), fields.sd.at("T22")->fld.data(), fields.sd.at("T23")->fld.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                fields.mp.at("v")->flux_bot.data(), fields.mp.at("v")->flux_top.data(),
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+    diff_w<TF>(
+                fields.mt.at("w")->fld.data(),
+                fields.sd.at("T13")->fld.data(), fields.sd.at("T23")->fld.data(), fields.sd.at("T33")->fld.data(),
+                fields.mp.at("u")->flux_bot.data(),fields.mp.at("v")->flux_bot.data(),
+                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
+                //fields.rhoref.data(), fields.rhorefh.data(),
+                //fields.visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+
+    for (auto it : fields.st)
+        {
+        diff_c<TF, Surface_model::Enabled>(
+                it.second->fld.data(), fields.sp.at(it.first)->fld.data(),
+                gd.dzi.data(), gd.dzhi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy),
+                fields.sd.at("evisc")->fld.data(),
+                fields.sp.at(it.first)->flux_bot.data(), fields.sp.at(it.first)->flux_top.data(),
+                fields.rhoref.data(), fields.rhorefh.data(), tPr,
+                fields.sp.at(it.first)->visc,
+                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
+                gd.icells, gd.ijcells);
+        }
+    }
+
     molecular_diff_c<TF>(fields.mt.at("u")->fld.data(), fields.mp.at("u")->fld.data(), fields.visc,
                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend, gd.icells, gd.ijcells,
                gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
@@ -1396,52 +1551,6 @@ void Diff_dnn<TF>::exec(Stats<TF>& stats)
                 gd.dx, gd.dy, gd.dzi.data(), gd.dzhi.data());
         }*/
     
-    if (boundary.get_switch() != "default")
-    {
-        diff_u<TF, Surface_model::Enabled>(
-                fields.mt.at("u")->fld.data(),
-                fields.sd.at("T11")->fld.data(), fields.sd.at("T12")->fld.data(), fields.sd.at("T13")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                //fields.sd.at("evisc")->fld.data(),
-                fields.mp.at("u")->flux_bot.data(), fields.mp.at("u")->flux_top.data(),
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        diff_v<TF, Surface_model::Enabled>(
-                fields.mt.at("v")->fld.data(),
-                fields.sd.at("T12")->fld.data(), fields.sd.at("T22")->fld.data(), fields.sd.at("T23")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                fields.mp.at("v")->flux_bot.data(), fields.mp.at("v")->flux_top.data(),
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        diff_w<TF>(
-                fields.mt.at("w")->fld.data(),
-                fields.sd.at("T13")->fld.data(), fields.sd.at("T23")->fld.data(), fields.sd.at("T33")->fld.data(),
-                gd.z.data(), gd.zh.data(), 1./gd.dx, 1./gd.dy,
-                //fields.rhoref.data(), fields.rhorefh.data(),
-                //fields.visc,
-                gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                gd.icells, gd.ijcells);
-
-        for (auto it : fields.st)
-        {
-            diff_c<TF, Surface_model::Enabled>(
-                    it.second->fld.data(), fields.sp.at(it.first)->fld.data(),
-                    gd.dzi.data(), gd.dzhi.data(), 1./(gd.dx*gd.dx), 1./(gd.dy*gd.dy),
-                    fields.sd.at("evisc")->fld.data(),
-                    fields.sp.at(it.first)->flux_bot.data(), fields.sp.at(it.first)->flux_top.data(),
-                    fields.rhoref.data(), fields.rhorefh.data(), tPr,
-                    fields.sp.at(it.first)->visc,
-                    gd.istart, gd.iend, gd.jstart, gd.jend, gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells);
-        }
-    }
-    
 
 
     stats.calc_tend(*fields.mt.at("u"), tend_name);
@@ -1456,6 +1565,7 @@ template<typename TF>
 void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
 {
     auto& gd = grid.get_grid_data();
+    auto grid_order = grid.get_spatial_order();
     auto buoy_tmp = fields.get_tmp();
     thermo.get_thermo_field(*buoy_tmp, "N2", false, false);
     
@@ -1606,9 +1716,10 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
 
         //fields.release_tmp(buoy_tmp);
       }
-    
+
     destagger_u<TF, Surface_model::Enabled>(fields.sd.at("uc")->fld.data(), 
                     fields.mp.at("u")->fld.data(),
+                    grid_order,
                     gd.istart, gd.iend,
                     gd.jstart, gd.jend,
                     gd.kstart, gd.kend,
@@ -1617,6 +1728,7 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
         
     destagger_v<TF, Surface_model::Enabled>(fields.sd.at("vc")->fld.data(),
                     fields.mp.at("v")->fld.data(),
+                    grid_order,
                     gd.istart, gd.iend,
                     gd.jstart, gd.jend,
                     gd.kstart, gd.kend,
@@ -1669,7 +1781,7 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     fields.sd.at("TKEh")->fld.data(),
                     fields.sd.at("TKEv")->fld.data(),
                     fields.sd.at("TPE")->fld.data(),
-                    gd.dzi.data(),
+                    gd.dz.data(),
                     3,
                     gd.ncells,
                     gd.istart, gd.iend,
@@ -1679,45 +1791,8 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
         
     /*int ijk=gd.iend/2+ (gd.jend/2)*gd.icells + (gd.kend/3)*gd.ijcells;
     std::cout << Tau.index({ijk}) << std::endl; */
-      
-    set_flux<TF>(fields.sd.at("T11")->fld.data(),Tau,0,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic);
-    set_flux<TF>(fields.sd.at("T12")->fld.data(),Tau,1,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic);
-    set_flux<TF>(fields.sd.at("T13")->fld.data(),Tau,2,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic);
-    set_flux<TF>(fields.sd.at("T22")->fld.data(),Tau,3,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic);
-    set_flux<TF>(fields.sd.at("T23")->fld.data(),Tau,4,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic);
-    set_flux<TF>(fields.sd.at("T33")->fld.data(),Tau,5,
-                    gd.istart, gd.iend,
-                    gd.jstart, gd.jend,
-                    gd.kstart, gd.kend,
-                    gd.icells, gd.ijcells,
-                    boundary_cyclic); 
-    
 }
+
 #ifndef USECUDA
 template<typename TF>
 void Diff_dnn<TF>::create_stats(Stats<TF>& stats)
