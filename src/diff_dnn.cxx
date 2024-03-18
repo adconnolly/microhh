@@ -715,15 +715,16 @@ namespace
         
         const int nbatch = kkbatch*(kendBL-1-kstart-k_offset);
         
-        at::Tensor x = torch::zeros({nbatch, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
-
+        at::Tensor x = torch::zeros({1, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
+        at::Tensor Tau = torch::zeros({nbatch, 6});
+        
         for (int k=kstart+k_offset; k<kendBL-1; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
-                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
+                    //const int ijkbatch = 1+i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                                        
                     TF ubar = 0;
                     TF vbar = 0;
@@ -742,52 +743,46 @@ namespace
                     vbar=vbar/nbox;
                     wbar=wbar/nbox;
                     bbar=bbar/nbox;
+
+                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
+                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
+                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
                     for (int iz=-iv; iz<=iv; iz++)
                         for (int ix=-ih; ix<=ih; ++ix)
                                 for (int iy=-ih; iy<=ih; ++iy)
-                                {
-                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
-                                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
-                                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
-                                    x.index_put_({ijkbatch, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
-                                    x.index_put_({ijkbatch, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
-                                    x.index_put_({ijkbatch, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
-                                    x.index_put_({ijkbatch, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
+                                {                                    
+                                    x.index_put_({0, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
+                                    x.index_put_({0, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
+                                    x.index_put_({0, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
+                                    x.index_put_({0, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
                                 }
                     /*if (ijkbatch==4){std::cout << x.slice(0, 0,4) << std::endl;}
                     if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}*/
-                }
-        
-        std::vector<torch::jit::IValue> inputs;
-        inputs.push_back(x);
+                  
+                    std::vector<torch::jit::IValue> input;
+                    input.push_back(x);
   
-        at::Tensor Tau = dnn.forward(inputs).toTensor();
-
-        for (int k=kstart+k_offset; k<kendBL-1; ++k)
-            for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {
-                    const int ijk = i + j*jj + k*kk;
-                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
-                    
+                    at::Tensor output = dnn.forward(input).toTensor();
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;                
+                 
                     TF ktot = TKEh[ijk]+TKEv[ijk];
                     TF kv = TKEv[ijk];
                     TF rootkkv =  std::pow(ktot*kv,0.5);
                     
                     /*if (ijkbatch==4) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
-                    Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ktot );
-                    Tau.index_put_({ijkbatch, 1}, Tau.index({ijkbatch, 1}) * ktot );
-                    Tau.index_put_({ijkbatch, 2}, Tau.index({ijkbatch, 2}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ktot );
-                    Tau.index_put_({ijkbatch, 4}, Tau.index({ijkbatch, 4}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * kv );
+                    Tau.index_put_({ijkbatch, 0}, output.index({0, 0}) * ktot );
+                    Tau.index_put_({ijkbatch, 1}, output.index({0, 1}) * ktot );
+                    Tau.index_put_({ijkbatch, 2}, output.index({0, 2}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 3}, output.index({0, 3}) * ktot );
+                    Tau.index_put_({ijkbatch, 4}, output.index({0, 4}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 5}, output.index({0, 5}) * kv );
                     /*if (ijkbatch==04) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
                     
                 }
-                
+        //std::cout << Tau << std::endl;        
+        
         return Tau.to(torch::kDouble);
     }
 
