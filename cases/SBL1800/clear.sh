@@ -7,5 +7,7 @@ rm time.*
 rm d*d*.*
 rm grid.*
 rm fftwplan.*
+rm z0*.*
+rm obuk.*
 #rm drycblles_input.nc
-find . -name "SBL1800.*" -not -name "*.ini" -exec rm {} \;
+find . -name "SBL*00.*" -not -name "*.ini" -exec rm {} \;

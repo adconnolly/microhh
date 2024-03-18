@@ -1,13 +1,13 @@
 #!/bin/bash
-#PBS -N k64
+#PBS -N build
 ### Project code
 #PBS -A UCLB0017 
-#PBS -l walltime=12:00:00
+#PBS -l walltime=01:00:00
 #PBS -q main
 ### Merge output and error files
 #PBS -j oe
 #PBS -k eod
-#PBS -l select=1:ncpus=128:mpiprocs=128
+#PBS -l select=1:ncpus=1
 ### Specify index range of sub-jobs
 ### Send email on abort, begin and end
 #PBS -m abe
@@ -17,7 +17,4 @@
 source ~/env_cpptorch
 conda activate cpptorch
 
-sh clear.sh
-
-mpiexec ./microhh init SBL1800
-mpiexec ./microhh run SBL1800 
+sh newbuild.sh
