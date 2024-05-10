@@ -28,7 +28,6 @@
 
 #include "grid.h"
 #include "fields.h"
-#include "force.h"
 #include "master.h"
 #include "defines.h"
 #include "constants.h"
@@ -693,16 +692,16 @@ namespace
                                     +(z[kstart]-zh[kstart])*(flux_fld[ijk+kk]-TF(0.5)*(fluxbot[ij]+fluxbot[ij+jj]))
                                         /(z[kstart+1]-zh[kstart]);
                 }}
-        // else{
-        //     for (int j=jstart; j<jend; ++j)
-        //         #pragma ivdep
-        //         for (int i=istart; i<iend; ++i)
-        //         {    
-        //             const int ij  = i + j*jj;
-        //             const int ijk = i + j*jj + (kstart)*kk;
-        //             // Linearly interpolating all other components from tau11=tau12=tau22=tau33=0 at surface 
-        //             flux_fld[ijk] = (z[kstart]-zh[kstart])*(flux_fld[ijk+kk])/(z[kstart+1]-zh[kstart]);
-        //         }}
+        else{
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {    
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + (kstart)*kk;
+                    // Linearly interpolating all other components from tau11=tau12=tau22=tau33=0 at surface 
+                    flux_fld[ijk] = (z[kstart]-zh[kstart])*(flux_fld[ijk+kk])/(z[kstart+1]-zh[kstart]);
+                }}
         
         // Top BC
         for (int j=jstart; j<jend; ++j)
@@ -715,7 +714,7 @@ namespace
                 
                 // Can't compute at top, so set gradient to zero
                 flux_fld[ijk] = flux_fld[ijk-kk]; // these are only levels that get touched in diff_* but could fill all, or
-                flux_fld[ijk+kk] = flux_fld[ijk]; // If fluxtop is known somehow, change this to interpolation
+                flux_fld[ijk+kk] = flux_fld[ijk]; // if fluxtop is known somehow, change this to interpolation
                 if (dim==2 or dim==4)
                     fluxtop[ij] = flux_fld[ijk]; // 2 is Tau13, 4 is Tau23, this is wrong staggering but never used so fix later
             }
@@ -755,10 +754,10 @@ namespace
                     const int ijk = i + j*jj + kstart*kk;
                     
                     ut[ijk] +=
-                            // // -dTau11/dx = 0 in surface layer by horizontal homogeneity assumption
-                            // -dxi*(T11[ijk+ii]-T11[ijk])
-                            // // -dTau12/dy = 0 in surface layer by horizontal homogeneity assumption
-                            // -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
+                            // -dTau11/dx 
+                            -dxi*(T11[ijk+ii]-T11[ijk])
+                            // -dTau12/dy 
+                            -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
                              // -dTau13/dz
                             -(TF(0.5)*(T13[ijk+kk]+T13[ijk-ii+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
                     
@@ -823,10 +822,10 @@ namespace
                     int ijk = i + j*jj + kstart*kk;
                     
                     vt[ijk] += 
-                            // //-dTau21/dx
-                            // -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
-                            // // -dTau22/dy
-                            // -dyi*(T22[ijk+jj]-T22[ijk]) 
+                            //-dTau21/dx
+                            -TF(0.25)*dxi*(T12[ijk+ii]+T12[ijk+ii+jj]-T12[ijk-ii]-T12[ijk-ii+jj])
+                            // -dTau22/dy
+                            -dyi*(T22[ijk+jj]-T22[ijk]) 
                              // -dTau23/dz
                             -(TF(0.5)*(T23[ijk+kk]+T23[ijk-jj+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
 
@@ -877,7 +876,7 @@ namespace
         const int ii = 1;
         const int kendBL = kstart+(3*(kend-kstart))/4;
 
-        for (int k=kstart+2; k<kendBL; ++k)
+        for (int k=kstart+1; k<kendBL; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -893,36 +892,6 @@ namespace
                             -(T33[ijk]-T33[ijk-kk])/(z[k]-z[k-1]); 
                 }
 
-        // first above bottom boundary
-        // Though we can interpolate using the surface flux values for some of the terms below, 
-        // proably best to just assume -dTau31/dx = -dTau32/dy = 0 by horizontal homeogeneity 
-        // -dTau33/dz = 0 is harder to justify, but perhaps follows from divergence-free constraints 
-        // In any case, just turning off this block of code but saving to turn on later maybe
-        if (0)             
-        {   for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {    
-                    const int ij = i + j*jj;
-                    const int ijk = i + j*jj + (kstart+1)*kk;
-                    wt[ijk] +=
-                            // -dTau31/dx , interpolation happens in set_flux so don't handle separately here
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii-kk]-T13[ijk-ii]-T13[ijk-ii-kk])
-                            // -dTau32/dy , interpolation happens in set_flux so don't handle separately here
-                            -TF(0.25)*dyi*(T23[ijk+jj]+T23[ijk+jj-kk]-T23[ijk-jj]-T23[ijk-jj-kk]);
-                             // -dTau33/dz  
-                            /* Can't do centered differnce, b/c don't have <w'w'> at surface as we do <u'w'>, <v'w'> from MOST
-                               One-side difference with zero fluz at surface?
-                                   -T33[ijk]/(z[kstart+1]-zh[kstart]);
-                                       maybe but probably can't argue <w'w'>=0 at surface by no flux
-                                       in the same way we can't argue <u'w'> = 0 at surface by no slip
-                                Zero Neumann i.e enforcing dTau33/dz = 0 in surface layer? 
-                                    Implement by doing nothing here, 
-                                    can't really justify that physically, but also can't justify the linear interpolation 
-                            */
-                    }
-            }
-    
         // DNN turned off above boundary layer
              /*for (int k=kendBL; k<kend-1; ++k)   ...
              const int ijk = i + j*jj + (kend-1)*kk; */
