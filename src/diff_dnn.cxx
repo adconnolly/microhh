@@ -715,16 +715,15 @@ namespace
         
         const int nbatch = kkbatch*(kendBL-1-kstart-k_offset);
         
-        at::Tensor x = torch::zeros({1, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
-        at::Tensor Tau = torch::zeros({nbatch, 6});
-        
+        at::Tensor x = torch::zeros({nbatch, 4*nv, nh, nh}); // Number of input variables, 4, is fixed: u,v,w,b       
+
         for (int k=kstart+k_offset; k<kendBL-1; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ijk = i + j*jj + k*kk;
-                    //const int ijkbatch = 1+i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                                        
                     TF ubar = 0;
                     TF vbar = 0;
@@ -743,46 +742,52 @@ namespace
                     vbar=vbar/nbox;
                     wbar=wbar/nbox;
                     bbar=bbar/nbox;
-
-                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
-                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
-                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
                     for (int iz=-iv; iz<=iv; iz++)
                         for (int ix=-ih; ix<=ih; ++ix)
                                 for (int iy=-ih; iy<=ih; ++iy)
-                                {                                    
-                                    x.index_put_({0, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
-                                    x.index_put_({0, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
-                                    x.index_put_({0, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
-                                    x.index_put_({0, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
+                                {
+                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
+                                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
+                                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
+                                    x.index_put_({ijkbatch, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
+                                    x.index_put_({ijkbatch, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
+                                    x.index_put_({ijkbatch, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
+                                    x.index_put_({ijkbatch, 3*nv+(iz+iv),ih+ix,ih+iy}, (b[ijk+ix*ii+iy*jj+iz*kk]-bbar)*bScalei);
                                 }
                     /*if (ijkbatch==4){std::cout << x.slice(0, 0,4) << std::endl;}
                     if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)){std::cout << x.slice(0, ijk,ijk+1) << std::endl;}*/
-                  
-                    std::vector<torch::jit::IValue> input;
-                    input.push_back(x);
+                }
+        
+        std::vector<torch::jit::IValue> inputs;
+        inputs.push_back(x);
   
-                    at::Tensor output = dnn.forward(input).toTensor();
-                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;                
-                 
+        at::Tensor Tau = dnn.forward(inputs).toTensor();
+
+        for (int k=kstart+k_offset; k<kendBL-1; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ijk = i + j*jj + k*kk;
+                    const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
+                    
                     TF ktot = TKEh[ijk]+TKEv[ijk];
                     TF kv = TKEv[ijk];
                     TF rootkkv =  std::pow(ktot*kv,0.5);
                     
                     /*if (ijkbatch==4) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
-                    Tau.index_put_({ijkbatch, 0}, output.index({0, 0}) * ktot );
-                    Tau.index_put_({ijkbatch, 1}, output.index({0, 1}) * ktot );
-                    Tau.index_put_({ijkbatch, 2}, output.index({0, 2}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 3}, output.index({0, 3}) * ktot );
-                    Tau.index_put_({ijkbatch, 4}, output.index({0, 4}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 5}, output.index({0, 5}) * kv );
+                    Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ktot );
+                    Tau.index_put_({ijkbatch, 1}, Tau.index({ijkbatch, 1}) * ktot );
+                    Tau.index_put_({ijkbatch, 2}, Tau.index({ijkbatch, 2}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ktot );
+                    Tau.index_put_({ijkbatch, 4}, Tau.index({ijkbatch, 4}) * rootkkv );
+                    Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * kv );
                     /*if (ijkbatch==04) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
                     
                 }
-        //std::cout << Tau << std::endl;        
-        
+                
         return Tau.to(torch::kDouble);
     }
 
@@ -871,7 +876,7 @@ namespace
                 
                 // Can't compute at top, so set gradient to zero
                 flux_fld[ijk] = flux_fld[ijk-kk]; // these are only levels that get touched in diff_* but could fill all, or
-                flux_fld[ijk+kk] = flux_fld[ijk]; // If fluxtop is known somehow, change this to interpolation
+                flux_fld[ijk+kk] = flux_fld[ijk]; // if fluxtop is known somehow, change this to interpolation
                 if (dim==2 or dim==4)
                     fluxtop[ij] = flux_fld[ijk]; // 2 is Tau13, 4 is Tau23, this is wrong staggering but never used so fix later
             }
@@ -911,9 +916,9 @@ namespace
                     const int ijk = i + j*jj + kstart*kk;
                     
                     ut[ijk] +=
-                            // -dTau11/dx = 0 in surface layer by horizontal homogeneity assumption
+                            // -dTau11/dx 
                             -dxi*(T11[ijk+ii]-T11[ijk])
-                            // -dTau12/dy = 0 in surface layer by horizontal homogeneity assumption
+                            // -dTau12/dy 
                             -TF(0.25)*dyi*(T12[ijk+jj]+T12[ijk+ii+jj]-T12[ijk-jj]-T12[ijk+ii-jj]) 
                              // -dTau13/dz
                             -(TF(0.5)*(T13[ijk+kk]+T13[ijk-ii+kk])-fluxbot[ij])/(z[kstart+1]-zh[kstart]);
@@ -1033,7 +1038,7 @@ namespace
         const int ii = 1;
         const int kendBL = kstart+(3*(kend-kstart))/4;
 
-        for (int k=kstart+2; k<kendBL; ++k)
+        for (int k=kstart+1; k<kendBL; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
                 for (int i=istart; i<iend; ++i)
@@ -1049,36 +1054,6 @@ namespace
                             -(T33[ijk]-T33[ijk-kk])/(z[k]-z[k-1]); 
                 }
 
-        // first above bottom boundary
-        // Though we can interpolate using the surface flux values for some of the terms below, 
-        // proably best to just assume -dTau31/dx = -dTau32/dy = 0 by horizontal homeogeneity 
-        // -dTau33/dz = 0 is harder to justify, but perhaps follows from divergence-free constraints 
-        // In any case, just turning off this block of code but saving to turn on later maybe
-        if (0)             
-        {   for (int j=jstart; j<jend; ++j)
-                #pragma ivdep
-                for (int i=istart; i<iend; ++i)
-                {    
-                    const int ij = i + j*jj;
-                    const int ijk = i + j*jj + (kstart+1)*kk;
-                    wt[ijk] +=
-                            // -dTau31/dx , interpolation happens in set_flux so don't handle separately here
-                            -TF(0.25)*dxi*(T13[ijk+ii]+T13[ijk+ii-kk]-T13[ijk-ii]-T13[ijk-ii-kk])
-                            // -dTau32/dy , interpolation happens in set_flux so don't handle separately here
-                            -TF(0.25)*dyi*(T23[ijk+jj]+T23[ijk+jj-kk]-T23[ijk-jj]-T23[ijk-jj-kk]);
-                             // -dTau33/dz  
-                            /* Can't do centered differnce, b/c don't have <w'w'> at surface as we do <u'w'>, <v'w'> from MOST
-                               One-side difference with zero fluz at surface?
-                                   -T33[ijk]/(z[kstart+1]-zh[kstart]);
-                                       maybe but probably can't argue <w'w'>=0 at surface by no flux
-                                       in the same way we can't argue <u'w'> = 0 at surface by no slip
-                                Zero Neumann i.e enforcing dTau33/dz = 0 in surface layer? 
-                                    Implement by doing nothing here, 
-                                    can't really justify that physically, but also can't justify the linear interpolation 
-                            */
-                    }
-            }
-    
         // DNN turned off above boundary layer
              /*for (int k=kendBL; k<kend-1; ++k)   ...
              const int ijk = i + j*jj + (kend-1)*kk; */
@@ -1766,7 +1741,7 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     boundary_cyclic);
     
     fields.release_tmp(buoy_tmp);
-    
+
     Tau = calc_Tau<TF, Surface_model::Enabled>(
                     this->dnn,
                     fields.sd.at("uc")->fld.data(),
