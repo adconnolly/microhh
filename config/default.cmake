@@ -1,1 +1,1 @@
-cheyenne_gnu.cmake
+derecho_gnu.cmake
