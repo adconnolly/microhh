@@ -420,6 +420,7 @@ namespace
     
     template <typename TF, Surface_model surface_model>
     void destagger_u(
+            TF* const restrict uf,
             TF* const restrict uc,
             const TF* const restrict u,
             const Grid_order spatial_order,
@@ -438,7 +439,8 @@ namespace
                     for (int i=istart; i<iend; ++i)
                     {
                         const int ijk = i + j*jj + k*kk;
-                        uc[ijk] = (u[ijk+ii+ii]+u[ijk-ii])/TF(6.)+(u[ijk+ii]+u[ijk])/TF(3.);
+                        //uc[ijk] = (u[ijk+ii+ii]+u[ijk-ii])/TF(6.)+(u[ijk+ii]+u[ijk])/TF(3.);
+                        uc[ijk] = (u[ijk-ii] + u[ijk] + u[ijk+ii] + u[ijk+ii+ii])/TF(6.);
                     }
         else
             for (int k=kstart; k<kend; ++k)
@@ -451,10 +453,37 @@ namespace
                     }
         
         boundary_cyclic.exec(uc);
+        for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + kstart*kk;
+                        uf[ijk]=uc[ijk];
+                        }
+        
+        const int ih = 1;
+        const int iv = 1;
+        const TF inbox = TF(1.0/27.0);
+        for (int k=kstart+iv; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + k*kk;
+                        for (int iz=-iv; iz<=iv; iz++)
+                            for (int ix=-ih; ix<=ih; ++ix)
+                                for (int iy=-ih; iy<=ih; ++iy)
+                                {
+                                uf[ijk]+= uc[ijk+ix*ii+iy*jj+iz*kk];
+                                }
+                        uf[ijk]=uf[ijk]*inbox;
+                        }
+        boundary_cyclic.exec(uf);
     }
     
     template <typename TF, Surface_model surface_model>
     void destagger_v(
+            TF* const restrict vf,
             TF* const restrict vc,
             const TF* const restrict v,
             const Grid_order spatial_order,
@@ -472,7 +501,8 @@ namespace
                     for (int i=istart; i<iend; ++i)
                     {
                         const int ijk = i + j*jj + k*kk;
-                        vc[ijk] = (v[ijk+jj+jj]+v[ijk-jj])/TF(6.)+(v[ijk+jj]+v[ijk])/TF(3.);
+                        //vc[ijk] = (v[ijk+jj+jj]+v[ijk-jj])/TF(6.)+(v[ijk+jj]+v[ijk])/TF(3.);
+                        vc[ijk] = (v[ijk-jj] + v[ijk] + v[ijk+jj] + v[ijk+jj+jj])/TF(6.);
                     }
         else
              for (int k=kstart; k<kend; ++k)
@@ -484,10 +514,38 @@ namespace
                         vc[ijk] = TF(0.5)*(v[ijk+jj]+v[ijk]);
                     }
         boundary_cyclic.exec(vc);
+        for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + kstart*kk;
+                        vf[ijk]=vc[ijk];
+                        }
+        
+        const int ii = 1;
+        const int ih = 1;
+        const int iv = 1;
+        const TF inbox = TF(1.0/27.0);
+        for (int k=kstart+iv; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + k*kk;
+                        for (int iz=-iv; iz<=iv; iz++)
+                            for (int ix=-ih; ix<=ih; ++ix)
+                                for (int iy=-ih; iy<=ih; ++iy)
+                                {
+                                vf[ijk]+= vc[ijk+ix*ii+iy*jj+iz*kk];
+                                }
+                        vf[ijk]=vf[ijk]*inbox;
+                        }
+        boundary_cyclic.exec(vf);
     }
     
     template <typename TF, Surface_model surface_model>
     void destagger_w(
+            TF* const restrict wf,
             TF* const restrict wc,
             const TF* const restrict w,
             const int istart, const int iend,
@@ -497,8 +555,6 @@ namespace
             Boundary_cyclic<TF>& boundary_cyclic)
     {
         
-        const int ii = 1;
-
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
@@ -508,10 +564,38 @@ namespace
                     wc[ijk] = TF(0.5)*(w[ijk+kk]+w[ijk]);
                 }
         boundary_cyclic.exec(wc);
+        for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + kstart*kk;
+                        wf[ijk]=wc[ijk];
+                        }
+        
+        const int ii = 1;
+        const int ih = 1;
+        const int iv = 1;
+        const TF inbox = TF(1.0/27.0);
+        for (int k=kstart+iv; k<kend; ++k)
+                for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + k*kk;
+                        for (int iz=-iv; iz<=iv; iz++)
+                            for (int ix=-ih; ix<=ih; ++ix)
+                                for (int iy=-ih; iy<=ih; ++iy)
+                                {
+                                wf[ijk]+= wc[ijk+ix*ii+iy*jj+iz*kk];
+                                }
+                        wf[ijk]=wf[ijk]*inbox;
+                        }
+        boundary_cyclic.exec(wf);
     }
     
     template <typename TF, Surface_model surface_model>
     void calc_TKEh(
+            TF* const restrict TKEhf,
             TF* const restrict TKEh,
             const TF* const restrict uc,
             const TF* const restrict vc,
@@ -574,10 +658,31 @@ namespace
                     //TKEh[ijk] += Constants::dsmall;
                 }
         boundary_cyclic.exec(TKEh);
+
+        const int ih = 1;
+        //const int iv = 1;
+        const TF inbox = TF(1.0/27.0);
+        //for (int k=kstart+iv; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                    #pragma ivdep
+                    for (int i=istart; i<iend; ++i)
+                        {
+                        const int ijk = i + j*jj + k*kk;
+                        for (int iz=-iv; iz<=iv; iz++)
+                            for (int ix=-ih; ix<=ih; ++ix)
+                                for (int iy=-ih; iy<=ih; ++iy)
+                                {
+                                uf[ijk]+= uc[ijk+ix*ii+iy*jj+iz*kk];
+                                }
+                        uf[ijk]=uf[ijk]*inbox;
+                        }
+        boundary_cyclic.exec(uf);
+        
     }
     
     template <typename TF, Surface_model surface_model>
     void calc_TKEv(
+            TF* const restrict TKEvf,
             TF* const restrict TKEv,
             const TF* const restrict wc,
             const int istart, const int iend,
@@ -724,7 +829,11 @@ namespace
                 {
                     const int ijk = i + j*jj + k*kk;
                     const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
-                                       
+
+                    const TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dsmaller,-0.5);
+                    const TF rootkvi = std::pow(TKEv[ijk]+Constants::dsmaller,-0.5);
+                    const TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
+                    
                     TF ubar = 0;
                     TF vbar = 0;
                     TF wbar = 0;
@@ -745,10 +854,7 @@ namespace
                     for (int iz=-iv; iz<=iv; iz++)
                         for (int ix=-ih; ix<=ih; ++ix)
                                 for (int iy=-ih; iy<=ih; ++iy)
-                                {
-                                    TF rootki = std::pow(TKEh[ijk]+TKEv[ijk]+Constants::dtiny,-0.5);
-                                    TF rootkvi = std::pow(TKEv[ijk]+Constants::dtiny,-0.5);
-                                    TF bScalei = dz[k]/(TPE[ijk]+Constants::dtiny);
+                                {                                    
                                     x.index_put_({ijkbatch, 2*(iz+iv),ih+ix,ih+iy}, (uc[ijk+ix*ii+iy*jj+iz*kk]-ubar)*rootki);
                                     x.index_put_({ijkbatch, 2*(iz+iv)+1,ih+ix,ih+iy}, (vc[ijk+ix*ii+iy*jj+iz*kk]-vbar)*rootki);
                                     x.index_put_({ijkbatch, 2*nv+(iz+iv),ih+ix,ih+iy}, (wc[ijk+ix*ii+iy*jj+iz*kk]-wbar)*rootkvi);
@@ -771,18 +877,19 @@ namespace
                     const int ijk = i + j*jj + k*kk;
                     const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                     
-                    TF ktot = TKEh[ijk]+TKEv[ijk];
-                    TF kv = TKEv[ijk];
-                    TF rootkkv =  std::pow(ktot*kv,0.5);
-                    
+                    const TF ktot = TKEh[ijk]+TKEv[ijk];
+                    const TF kv = TKEv[ijk];
+                    const TF rootkkv =  std::pow(ktot*kv,0.5);
+
+                    const auto third_trace= (Tau.index({ijkbatch, 0})*ktot + Tau.index({ijkbatch, 3})*ktot + Tau.index({ijkbatch, 5})*kv)/3.0;
                     /*if (ijkbatch==4) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
-                    Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ktot );
+                    Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ktot - third_trace);
                     Tau.index_put_({ijkbatch, 1}, Tau.index({ijkbatch, 1}) * ktot );
                     Tau.index_put_({ijkbatch, 2}, Tau.index({ijkbatch, 2}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ktot );
+                    Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ktot - third_trace);
                     Tau.index_put_({ijkbatch, 4}, Tau.index({ijkbatch, 4}) * rootkkv );
-                    Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * kv );
+                    Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * kv - third_trace);
                     /*if (ijkbatch==04) {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                     if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;} */
                     
@@ -1312,11 +1419,15 @@ Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin,
     fields.init_diagnostic_field("T33", "Turbulent flux of u_3 mom'm in x_3 direction", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("TKEh", "Proportional to turbulent kinetic energy associated with horizontal velocities as estimated by Taylor expansion", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("TKEv", "Proportional to turbulent kinetic energy associated with vertical velocity as estimated by Taylor expansion", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("TKEhf", "Filtered TKEh", "m2 s-2", group_name, gd.sloc);
+    fields.init_diagnostic_field("TKEvf", "Filtered TKEv", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("TPE", "Proportional to turbulent potential energy as estimated by Taylor expansion of buoyancy", "m2 s-2", group_name, gd.sloc);
     fields.init_diagnostic_field("uc", "Destaggered u velocity", "m s-1", group_name, gd.sloc);
     fields.init_diagnostic_field("vc", "Destaggered v velocity", "m s-1", group_name, gd.sloc);
     fields.init_diagnostic_field("wc", "Destaggered w velocity", "m s-1", group_name, gd.sloc);
-
+    fields.init_diagnostic_field("uf", "Filtered u velocity", "m s-1", group_name, gd.sloc);
+    fields.init_diagnostic_field("vf", "Filtered v velocity", "m s-1", group_name, gd.sloc);
+    fields.init_diagnostic_field("wf", "Filtered w velocity", "m s-1", group_name, gd.sloc);
         
 /*    if (grid.get_spatial_order() != Grid_order::Second)
         throw std::runtime_error("Diff_dnn only runs with second order grids");*/
@@ -1687,7 +1798,8 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
         //fields.release_tmp(buoy_tmp);
       }
 
-    destagger_u<TF, Surface_model::Enabled>(fields.sd.at("uc")->fld.data(), 
+    destagger_u<TF, Surface_model::Enabled>(fields.sd.at("uf")->fld.data(),
+                    fields.sd.at("uc")->fld.data(), 
                     fields.mp.at("u")->fld.data(),
                     grid_order,
                     gd.istart, gd.iend,
@@ -1696,7 +1808,8 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     gd.icells,gd.ijcells,
                     boundary_cyclic);
         
-    destagger_v<TF, Surface_model::Enabled>(fields.sd.at("vc")->fld.data(),
+    destagger_v<TF, Surface_model::Enabled>(fields.sd.at("vf")->fld.data(),
+                    fields.sd.at("vc")->fld.data(),
                     fields.mp.at("v")->fld.data(),
                     grid_order,
                     gd.istart, gd.iend,
@@ -1705,7 +1818,8 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     gd.icells, gd.ijcells,
                     boundary_cyclic);
         
-    destagger_w<TF, Surface_model::Enabled>(fields.sd.at("wc")->fld.data(),
+    destagger_w<TF, Surface_model::Enabled>(fields.sd.at("wf")->fld.data(),
+                    fields.sd.at("wc")->fld.data(),
                     fields.mp.at("w")->fld.data(),
                     gd.istart, gd.iend,
                     gd.jstart, gd.jend,
@@ -1713,18 +1827,19 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
                     gd.icells, gd.ijcells,
                     boundary_cyclic);
     
-    
-    calc_TKEh<TF, Surface_model::Enabled>(fields.sd.at("TKEh")->fld.data(),
-                    fields.sd.at("uc")->fld.data(),
-                    fields.sd.at("vc")->fld.data(),
+    calc_TKEh<TF, Surface_model::Enabled>(fields.sd.at("TKEhf")->fld.data(),
+                    fields.sd.at("TKEh")->fld.data(),
+                    fields.sd.at("uf")->fld.data(),
+                    fields.sd.at("vf")->fld.data(),
                     gd.istart, gd.iend,
                     gd.jstart, gd.jend,
                     gd.kstart, gd.kend,
                     gd.icells, gd.ijcells,
                     boundary_cyclic);
     
-    calc_TKEv<TF, Surface_model::Enabled>(fields.sd.at("TKEv")->fld.data(),
-                    fields.sd.at("wc")->fld.data(),
+    calc_TKEv<TF, Surface_model::Enabled>(fields.sd.at("TKEvf")->fld.data(),
+                    fields.sd.at("TKEv")->fld.data(),
+                    fields.sd.at("wf")->fld.data(),
                     gd.istart, gd.iend,
                     gd.jstart, gd.jend,
                     gd.kstart, gd.kend,
@@ -1744,9 +1859,9 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
 
     Tau = calc_Tau<TF, Surface_model::Enabled>(
                     this->dnn,
-                    fields.sd.at("uc")->fld.data(),
-                    fields.sd.at("vc")->fld.data(),
-                    fields.sd.at("wc")->fld.data(),
+                    fields.sd.at("uf")->fld.data(),
+                    fields.sd.at("vf")->fld.data(),
+                    fields.sd.at("wf")->fld.data(),
                     fields.sp.at("b")->fld.data(),
                     fields.sd.at("TKEh")->fld.data(),
                     fields.sd.at("TKEv")->fld.data(),

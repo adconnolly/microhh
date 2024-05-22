@@ -93,6 +93,7 @@ namespace Constants
 
     // BvS: Perhaps better off back in defines.h? Separate namespace?
     const double        dtiny  = 1.e-30;
+    const double        dsmaller = 1.e-16;
     const double        dsmall = 1.e-9;
     const double        dbig   = 1.e9;
     const double        dhuge  = 1.e30;
