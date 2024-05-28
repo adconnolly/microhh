@@ -1,4 +1,4 @@
-rm SBL2700.default.0000000.nc
+rm SBL*.default.0000000.nc
 find . -name "u.*" -not -name "*.0000000" -exec rm {} \;
 find . -name "v.*" -not -name "*.0000000" -exec rm {} \;
 find . -name "w.*" -not -name "*.0000000" -exec rm {} \;
