@@ -81,6 +81,7 @@ class Diff_dnn : public Diff<TF>
        
         //torch::Tensor Tau;
         at::Tensor Tau;
+        bool swdeviatoric;
         std::string dnnpath;
         torch::jit::script::Module dnn;
        

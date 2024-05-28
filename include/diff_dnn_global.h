@@ -86,6 +86,7 @@ class Diff_dnn_global : public Diff<TF>
         TF ib_scale;    
         //torch::Tensor Tau;
         at::Tensor Tau;
+        bool swdeviatoric;
         std::string dnnpath;
         torch::jit::script::Module dnn;
        
