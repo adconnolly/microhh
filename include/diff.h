@@ -32,7 +32,7 @@ template<typename> class Boundary;
 template<typename> class Thermo;
 template<typename> class Stats;
 
-enum class Diffusion_type {Disabled, Diff_2, Diff_4, Diff_smag2, Diff_dnn, Diff_dnn_global};
+enum class Diffusion_type {Disabled, Diff_2, Diff_4, Diff_smag2, Diff_dnn_local, Diff_dnn_global, Diff_dnn_stats};
 
 template <typename TF>
 class Diff

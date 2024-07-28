@@ -37,7 +37,7 @@
 #include "stats.h"
 #include "fast_math.h"
 
-#include "diff_dnn.h"
+#include "diff_dnn_local.h"
 
 namespace
 {
@@ -1435,7 +1435,7 @@ namespace
 } // End namespace.
 
 template<typename TF>
-Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin, Boundary<TF>& boundaryin, Input& inputin) :
+Diff_dnn_local<TF>::Diff_dnn_local(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin, Boundary<TF>& boundaryin, Input& inputin) :
     Diff<TF>(masterin, gridin, fieldsin, boundaryin, inputin),
     boundary_cyclic(master, grid),
     field3d_operators(master, grid, fields)
@@ -1473,29 +1473,29 @@ Diff_dnn<TF>::Diff_dnn(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin,
     fields.init_diagnostic_field("bf", "Filtered buoyancy", "m s-2", group_name, gd.sloc);
 
 /*    if (grid.get_spatial_order() != Grid_order::Second)
-        throw std::runtime_error("Diff_dnn only runs with second order grids");*/
+        throw std::runtime_error("Diff_dnn_local only runs with second order grids");*/
 }
 
 template<typename TF>
-Diff_dnn<TF>::~Diff_dnn()
+Diff_dnn_local<TF>::~Diff_dnn_local()
 {
 }
 
 template<typename TF>
-void Diff_dnn<TF>::init()
+void Diff_dnn_local<TF>::init()
 {
     boundary_cyclic.init();
 }
 
 template<typename TF>
-Diffusion_type Diff_dnn<TF>::get_switch() const
+Diffusion_type Diff_dnn_local<TF>::get_switch() const
 {
     return swdiff;
 }
 
 #ifndef USECUDA
 template<typename TF>
-unsigned long Diff_dnn<TF>::get_time_limit(const unsigned long idt, const double dt)
+unsigned long Diff_dnn_local<TF>::get_time_limit(const unsigned long idt, const double dt)
 {
     auto& gd = grid.get_grid_data();
 
@@ -1515,7 +1515,7 @@ unsigned long Diff_dnn<TF>::get_time_limit(const unsigned long idt, const double
 
 #ifndef USECUDA
 template<typename TF>
-double Diff_dnn<TF>::get_dn(const double dt)
+double Diff_dnn_local<TF>::get_dn(const double dt)
 {
     auto& gd = grid.get_grid_data();
 
@@ -1531,7 +1531,7 @@ double Diff_dnn<TF>::get_dn(const double dt)
 #endif
 
 template<typename TF>
-void Diff_dnn<TF>::create(Stats<TF>& stats)
+void Diff_dnn_local<TF>::create(Stats<TF>& stats)
 {
     auto& gd = grid.get_grid_data();
 
@@ -1550,7 +1550,7 @@ void Diff_dnn<TF>::create(Stats<TF>& stats)
 
 #ifndef USECUDA
 template<typename TF>
-void Diff_dnn<TF>::exec(Stats<TF>& stats)
+void Diff_dnn_local<TF>::exec(Stats<TF>& stats)
 {
     auto& gd = grid.get_grid_data();
     
@@ -1686,7 +1686,7 @@ void Diff_dnn<TF>::exec(Stats<TF>& stats)
 #endif
 
 template<typename TF>
-void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
+void Diff_dnn_local<TF>::exec_viscosity(Thermo<TF>& thermo)
 {
     auto& gd = grid.get_grid_data();
     auto grid_order = grid.get_spatial_order();
@@ -1936,7 +1936,7 @@ void Diff_dnn<TF>::exec_viscosity(Thermo<TF>& thermo)
 
 #ifndef USECUDA
 template<typename TF>
-void Diff_dnn<TF>::create_stats(Stats<TF>& stats)
+void Diff_dnn_local<TF>::create_stats(Stats<TF>& stats)
 {
     const std::string group_name = "default";
 
@@ -1955,7 +1955,7 @@ void Diff_dnn<TF>::create_stats(Stats<TF>& stats)
 #endif
 
 template<typename TF>
-void Diff_dnn<TF>::exec_stats(Stats<TF>& stats)
+void Diff_dnn_local<TF>::exec_stats(Stats<TF>& stats)
 {
     const TF no_offset = 0.;
     const TF no_threshold = 0.;
@@ -1963,7 +1963,7 @@ void Diff_dnn<TF>::exec_stats(Stats<TF>& stats)
 }
 
 template<typename TF>
-void Diff_dnn<TF>::diff_flux(Field3d<TF>& restrict out, const Field3d<TF>& restrict fld_in)
+void Diff_dnn_local<TF>::diff_flux(Field3d<TF>& restrict out, const Field3d<TF>& restrict fld_in)
 {
     auto& gd = grid.get_grid_data();
 
@@ -2022,8 +2022,8 @@ void Diff_dnn<TF>::diff_flux(Field3d<TF>& restrict out, const Field3d<TF>& restr
                     gd.icells, gd.ijcells);
     }
 }
-template class Diff_dnn<double>;
-template class Diff_dnn<float>;
+template class Diff_dnn_local<double>;
+template class Diff_dnn_local<float>;
 
 /*
     template<typename TF, Surface_model surface_model>

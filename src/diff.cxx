@@ -39,8 +39,9 @@
 #include "diff_2.h"
 #include "diff_4.h"
 #include "diff_smag2.h"
-#include "diff_dnn.h"
+#include "diff_dnn_local.h"
 #include "diff_dnn_global.h"
+#include "diff_dnn_stats.h"
 
 template<typename TF>
 Diff<TF>::Diff(Master& masterin, Grid<TF>& gridin, Fields<TF>& fieldsin, Boundary<TF>& boundaryin, Input& input) :
@@ -70,10 +71,12 @@ std::shared_ptr<Diff<TF>> Diff<TF>::factory(
         return std::make_shared<Diff_4<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
     else if (swdiff == "smag2")
         return std::make_shared<Diff_smag2<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
-    else if (swdiff == "dnn")
-        return std::make_shared<Diff_dnn<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
+    else if (swdiff == "dnn_local")
+        return std::make_shared<Diff_dnn_local<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
     else if (swdiff == "dnn_global")
         return std::make_shared<Diff_dnn_global<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
+    else if (swdiff == "dnn_stats")
+        return std::make_shared<Diff_dnn_stats<TF>>(masterin, gridin, fieldsin, boundaryin, inputin);
     else
     {
         std::string msg = swdiff + " is an illegal value for swdiff";
