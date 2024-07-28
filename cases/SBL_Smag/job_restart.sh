@@ -20,7 +20,4 @@ conda activate cpptorch
 #sh clear.sh
 
 #mpiexec ./microhh init SBL1800
-mpiexec ./microhh run SBL1800 
-
-mv SBL1800-Copy1.ini SBL1800.ini
-qsub job_restart-Copy1.sh
+mpiexec ./microhh run SBL1800

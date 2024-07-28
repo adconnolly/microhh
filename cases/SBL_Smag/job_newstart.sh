@@ -7,7 +7,7 @@
 ### Merge output and error files
 #PBS -j oe
 #PBS -k eod
-#PBS -l select=1:ncpus=64:mpiprocs=64
+#PBS -l select=1:ncpus=128:mpiprocs=128
 ### Specify index range of sub-jobs
 ### Send email on abort, begin and end
 #PBS -m abe
@@ -20,4 +20,7 @@ conda activate cpptorch
 sh clear.sh
 
 mpiexec ./microhh init SBL1800
-mpiexec ./microhh run SBL1800 
+mpiexec ./microhh run SBL1800
+
+# mpiexec ./microhh init SBL2700
+# mpiexec ./microhh run SBL2700
