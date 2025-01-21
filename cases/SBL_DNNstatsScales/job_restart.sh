@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N global
+#PBS -N stats
 ### Project code
 #PBS -A UCLB0017 
 #PBS -l walltime=12:00:00
@@ -19,5 +19,8 @@ conda activate cpptorch
 
 #sh clear.sh
 
-#mpiexec ./microhh init SBL1800
+# mpiexec ./microhh init SBL1800
 mpiexec ./microhh run SBL1800
+
+# mpiexec ./microhh init SBL2700
+# mpiexec ./microhh run SBL2700
