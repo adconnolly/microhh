@@ -639,3 +639,32 @@ def fix_bounds(u_string,coarse,itime,noslip=False,fix_bad_pad=False,nzbuffer=2):
             u[iz]=u[-nzbuffer-1]+(nzbuffer+iz+1)*du
 
     return u,z_interp
+
+def box(u,size=3,koffset=0,pad=True):
+    nx=u.shape[0]
+    ny=u.shape[1]
+    nz=u.shape[2]
+    nt=u.shape[3]
+    jj=size**2
+    kk=size**3
+    size=int((size-1)/2)
+    uf=np.zeros(u.shape)
+    
+    for it in range(nt):
+        for i in range(size,nx-size):
+            for j in range(size,ny-size):
+                for k in range(0,koffset+1):
+                    for ix in range(-size,size+1):
+                        for iy in range(-size,size+1):
+                            uf[i,j,k,it]+=u[i+ix,j+iy,k,it]
+                    uf[i,j,k,it]=uf[i,j,k,it]/jj
+                for k in range(size+koffset,nz-size):
+                    for ix in range(-size,size+1):
+                        for iy in range(-size,size+1):
+                            for ik in range(-size,size+1):
+                                uf[i,j,k,it]+=u[i+ix,j+iy,k+ik,it]
+                    uf[i,j,k,it]=uf[i,j,k,it]/kk
+    if pad:
+        return np.pad(uf[size:-size,size:-size],((size,size),(size,size),(0,0),(0,0)),mode='wrap')
+    else:
+        return uf
