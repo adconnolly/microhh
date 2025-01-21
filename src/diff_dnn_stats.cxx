@@ -706,18 +706,18 @@ namespace
                     const int ijkbatch = i-istart + (j-jstart)*jjbatch + (k-kstart-k_offset)*kkbatch;
                     if(swdeviatoric)
                     {
-                        const auto third_trace = TF(1.0/3.0)*(Tau.index({ijkbatch, 0}) + Tau.index({ijkbatch, 3}) + Tau.index({ijkbatch, 5}));
+                        const auto third_trace = TF(1.0/3.0)*( (Tau.index({ijkbatch, 0}) + Tau.index({ijkbatch, 3}))* ThStd + Tau.index({ijkbatch, 5})* T33Std);
                         
                         /*if (ijkbatch==4) 
                         {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                         if (ijk== (iend/2+ (jend/2)*jj + (kend/3)*kk))
                         {std::cout << Tau.slice(0, ijk,ijk+1) << std::endl;}*/
-                        Tau.index_put_({ijkbatch, 0}, (Tau.index({ijkbatch, 0})-third_trace) * ThStd );
-                        Tau.index_put_({ijkbatch, 1},  Tau.index({ijkbatch, 1}) * ThStd );
-                        Tau.index_put_({ijkbatch, 2},  Tau.index({ijkbatch, 2}) * Ti3Std );
-                        Tau.index_put_({ijkbatch, 3}, (Tau.index({ijkbatch, 3})-third_trace) * ThStd );
-                        Tau.index_put_({ijkbatch, 4},  Tau.index({ijkbatch, 4}) * Ti3Std );
-                        Tau.index_put_({ijkbatch, 5}, (Tau.index({ijkbatch, 5})-third_trace) * T33Std );
+                        Tau.index_put_({ijkbatch, 0}, Tau.index({ijkbatch, 0}) * ThStd - third_trace);
+                        Tau.index_put_({ijkbatch, 1}, Tau.index({ijkbatch, 1}) * ThStd );
+                        Tau.index_put_({ijkbatch, 2}, Tau.index({ijkbatch, 2}) * Ti3Std );
+                        Tau.index_put_({ijkbatch, 3}, Tau.index({ijkbatch, 3}) * ThStd - third_trace);
+                        Tau.index_put_({ijkbatch, 4}, Tau.index({ijkbatch, 4}) * Ti3Std );
+                        Tau.index_put_({ijkbatch, 5}, Tau.index({ijkbatch, 5}) * T33Std - third_trace);
                         /*if (ijkbatch==04) 
                         {std::cout << Tau.slice(0, 0, 4) << std::endl;}
                         if (ijk==(iend/2+ (jend/2)*jj + (kend/3)*kk)) 
