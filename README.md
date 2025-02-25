@@ -1,6 +1,6 @@
 This Fork
 ------------
-This is a fork of microHH, described in more detail below, which has been modified to compile with the machine learning library, libtorch, the C++ implementation of PyTorch (https://pytorch.org/cppdocs/). Here are also new "diffusion" options which make use of a deep neural network implemented with libtorch to parameterize the subgrid-scale stress in large-eddy simulation of the stably stratified boundary layer.
+This is a fork of microHH, described in more detail below, which has been modified to compile with the machine learning library, libtorch, the C++ implementation of PyTorch (https://pytorch.org/cppdocs/). Here are also new "diffusion" options which make use of a deep neural network implemented with libtorch to parameterize the subgrid-scale stress in large-eddy simulation of the stably stratified boundary layer. Read more about this with our preprint (https://doi.org/10.22541/essoar.173869578.80400701/v1).
 
 MicroHH
 -------
