@@ -3,3 +3,10 @@
 .gitignore
 .vscode
 .*
+
+# (i)Python caches
+.ipynb_checkpoints
+*/__pychache__/
+
+# Output files
+cases/*/*.0*
