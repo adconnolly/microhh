@@ -1,0 +1,488 @@
+
+Inactive Modules:
+  1) libfabric
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) cray-mpich/8.1.29     3) intel/2024.2.1          5) netcdf/4.9.2
+  2) craype/2.7.31         4) ncarcompilers/1.0.0
+
+The following have been reloaded with a version change:
+  1) hdf5/1.12.3 => hdf5/1.14.3     2) ncarenv/24.12 => ncarenv/23.09
+
+
+Lmod is automatically replacing "intel/2024.2.1" with "gcc/13.2.0".
+
+
+Inactive Modules:
+  1) gcc-toolchain/13.2.0
+
+Due to MODULEPATH changes, the following have been reloaded:
+  1) cray-mpich/8.1.29     2) hdf5/1.14.3     3) ncarcompilers/1.0.0     4) netcdf/4.9.2
+
+rm: cannot remove 'u.*': No such file or directory
+rm: cannot remove 'v.*': No such file or directory
+rm: cannot remove 'w.*': No such file or directory
+rm: cannot remove 'b*.*': No such file or directory
+rm: cannot remove 'p.*': No such file or directory
+rm: cannot remove 'time.*': No such file or directory
+rm: cannot remove 'd*d*.*': No such file or directory
+rm: cannot remove 'grid.*': No such file or directory
+rm: cannot remove 'fftwplan.*': No such file or directory
+rm: cannot remove 'z0*.*': No such file or directory
+rm: cannot remove 'obuk.*': No such file or directory
+Starting run on 64 processes
+Microhh git-hash: 1.9.4-143-gacf45c29-dirty
+Precision: Double (64-bits floats)
+Simulation name: SBL2700
+Simulation mode: init
+[grid][xsize]                 =      27.386
+[grid][ysize]                 =      27.386
+[grid][zsize]                 =      18.075
+[grid][itot]                  =          32
+[grid][jtot]                  =          32
+[grid][ktot]                  =          64
+[grid][utrans]                =           0   
+[grid][vtrans]                =           0   
+[radiation][lat]              =           0   (default)
+[grid][lat]                   =           0   (default)
+[radiation][lon]              =           0   (default)
+[grid][lon]                   =           0   (default)
+[grid][swspatialorder]        =           2
+[boundary][swboundary]        =     surface   
+[fields][visc]                =     1.5e-05
+[fields][slist]               =  EMPTY LIST   (default)
+[stats][xymasklist]           =  EMPTY LIST   (default)
+[time][endtime]               =       21600
+[time][savetime]              =        1800
+[time][adaptivestep]          =           0   
+[time][dtmax]                 =       1e+09   (default)
+[time][dt]                    =           1   
+[time][rkorder]               =           3   
+[time][outputiter]            =           1   
+[time][iotimeprec]            =          -1   
+[time][datetime_utc]          =               (default)
+[boundary][swboundary]        =     surface   
+[boundary][scalar_outflow]    =  EMPTY LIST   (default)
+[advec][swadvec]              =        2i53   
+[advec][cflmax]               =           1   (default)
+[diff][swdiff]                =       smag2   
+[boundary][swboundary]        =     surface   
+[diff][dnmax]                 =         0.3   
+[diff][cs]                    =        0.23   (default)
+[diff][tPr]                   =          50   
+[pres][swpres]                =           2   (default)
+[thermo][swthermo]            =        buoy   
+[thermo][alpha]               =           0   (default)
+[thermo][N2]                  =           0   (default)
+[fields][svisc][th]           =     1.5e-05
+[thermo][swbaroclinic]        =           0   (default)
+[micro][swmicro]              =           0   (default)
+[radiation][swradiation]      =           0   (default)
+[force][swlspres]             =         geo   
+[force][swwls]                =           0   (default)
+[force][swnudge]              =           0   (default)
+[force][swls]                 =           0   (default)
+[force][fc]                   =      0.0001   
+[force][swtimedep_geo]        =           0   (default)
+[force][swtimedep_geo]        =           0   (default)
+[force][swtimedep_wls]        =           0   (default)
+[buffer][swbuffer]            =           1   
+[buffer][swupdate]            =           0   (default)
+[buffer][zstart]              =      13.556
+[buffer][sigma]               =     0.27566   
+[buffer][beta]                =           2   
+[limiter][limitlist]          =  EMPTY LIST   (default)
+[source][swsource]            =           0   (default)
+[IB][sw_immersed_boundary]    =           0   (default)
+[stats][swstats]              =           1   
+[stats][sampletime]           =        1800
+[stats][masklist]             =  EMPTY LIST   (default)
+[stats][xymasklist]           =  EMPTY LIST   (default)
+[stats][swtendency]           =           0   (default)
+[stats][whitelist]            =  EMPTY LIST   (default)
+[stats][blacklist]            =  EMPTY LIST   (default)
+[column][swcolumn]            =           0   (default)
+[dump][swdump]                =           1   
+[dump][sampletime]            =        1800
+[dump][dumplist]              =     u,v,w,b
+[cross][swcross]              =           0   
+[budget][swbudget]            =           0   
+[grid][swspatialorder]        =           2   
+[master][npx]                 =           8   
+[master][npy]                 =           8   
+[master][wallclocklimit]      =      1677.5   
+Allocating temporary field: tmp1
+Allocating temporary field: tmp2
+Allocating temporary field: tmp3
+Allocating temporary field: tmp4
+[boundary][mbcbot]            =      noslip
+[boundary][mbctop]            =    freeslip
+[boundary][ubot]              =           0   (default)
+[boundary][utop]              =           0   (default)
+[boundary][vbot]              =           0   (default)
+[boundary][vtop]              =           0   (default)
+[boundary][sbcbot][b]         =        flux
+[boundary][sbctop][b]         =     neumann
+[boundary][sbot][b]           = -1.1237e-07
+[boundary][stop][b]           =           0
+[boundary][sbot_2d_list]      =  EMPTY LIST   (default)
+[boundary][scalar_outflow]    =  EMPTY LIST   (default)
+[boundary][swconstantz0]      =           1   (default)
+[boundary][swcharnock]        =           0   (default)
+[boundary][z0m]               =       1e-05
+[boundary][z0h]               =       1e-05
+[decay][swdecay][b]           =           0   (default)
+Retrieving from NetCDF: z
+[fields][rndseed]             =           0   (default)
+[fields][rndamp][u]           =      0.0075   
+[fields][rndz][u]             =          18   
+[fields][rndexp][u]           =         0.5   
+[fields][rndamp][w]           =           0   
+[fields][rndz][w]             =          18   
+[fields][rndexp][w]           =           0   (default)
+[fields][rndamp][v]           =      0.0075   
+[fields][rndz][v]             =          18   
+[fields][rndexp][v]           =         0.5   
+[fields][rndamp][b]           =           0   
+[fields][rndz][b]             =          18   
+[fields][rndexp][b]           =           0   (default)
+[fields][vortexnpair]         =           0   (default)
+[fields][vortexamp]           =       0.001   (default)
+[fields][vortexaxis]          =           y   (default)
+Retrieving from NetCDF: u
+Retrieving from NetCDF: v
+Retrieving from NetCDF: b
+Saving "grid.0000000" ... OK
+Saving "fftwplan.0000000" ... OK
+Saving "b.0000000" ... OK
+Saving "u.0000000" ... OK
+Saving "v.0000000" ... OK
+Saving "w.0000000" ... OK
+Saving "time.0000000" ... OK
+Saving "dudz_mo.0000000" ... OK
+Saving "dvdz_mo.0000000" ... OK
+Saving "dbdz_mo.0000000" ... OK
+Saving "b_gradbot.0000000" ... OK
+WARNING: [cross][crosslist] is not used!
+WARNING: [cross][sampletime] is not used!
+WARNING: [cross][xy] is not used!
+WARNING: [cross][xz] is not used!
+WARNING: [grid][swbasestate] is not used!
+Finished run on 64 processes
+Starting run on 64 processes
+Microhh git-hash: 1.9.4-143-gacf45c29-dirty
+Precision: Double (64-bits floats)
+Simulation name: SBL2700
+Simulation mode: run
+[grid][xsize]                 =      27.386
+[grid][ysize]                 =      27.386
+[grid][zsize]                 =      18.075
+[grid][itot]                  =          32
+[grid][jtot]                  =          32
+[grid][ktot]                  =          64
+[grid][utrans]                =           0   
+[grid][vtrans]                =           0   
+[radiation][lat]              =           0   (default)
+[grid][lat]                   =           0   (default)
+[radiation][lon]              =           0   (default)
+[grid][lon]                   =           0   (default)
+[grid][swspatialorder]        =           2
+[boundary][swboundary]        =     surface   
+[fields][visc]                =     1.5e-05
+[fields][slist]               =  EMPTY LIST   (default)
+[stats][xymasklist]           =  EMPTY LIST   (default)
+[time][starttime]             =           0
+[time][endtime]               =       21600
+[time][savetime]              =        1800
+[time][adaptivestep]          =           0   
+[time][dtmax]                 =       1e+09   (default)
+[time][dt]                    =           1   
+[time][rkorder]               =           3   
+[time][outputiter]            =           1   
+[time][iotimeprec]            =          -1   
+[time][datetime_utc]          =               (default)
+[boundary][swboundary]        =     surface   
+[boundary][scalar_outflow]    =  EMPTY LIST   (default)
+[advec][swadvec]              =        2i53   
+[advec][cflmax]               =           1   (default)
+[diff][swdiff]                =       smag2   
+[boundary][swboundary]        =     surface   
+[diff][dnmax]                 =         0.3   
+[diff][cs]                    =        0.23   (default)
+[diff][tPr]                   =          50   
+[pres][swpres]                =           2   (default)
+[thermo][swthermo]            =        buoy   
+[thermo][alpha]               =           0   (default)
+[thermo][N2]                  =           0   (default)
+[fields][svisc][th]           =     1.5e-05
+[thermo][swbaroclinic]        =           0   (default)
+[micro][swmicro]              =           0   (default)
+[radiation][swradiation]      =           0   (default)
+[force][swlspres]             =         geo   
+[force][swwls]                =           0   (default)
+[force][swnudge]              =           0   (default)
+[force][swls]                 =           0   (default)
+[force][fc]                   =      0.0001   
+[force][swtimedep_geo]        =           0   (default)
+[force][swtimedep_geo]        =           0   (default)
+[force][swtimedep_wls]        =           0   (default)
+[buffer][swbuffer]            =           1   
+[buffer][swupdate]            =           0   (default)
+[buffer][zstart]              =      13.556
+[buffer][sigma]               =     0.27566   
+[buffer][beta]                =           2   
+[limiter][limitlist]          =  EMPTY LIST   (default)
+[source][swsource]            =           0   (default)
+[IB][sw_immersed_boundary]    =           0   (default)
+[stats][swstats]              =           1   
+[stats][sampletime]           =        1800
+[stats][masklist]             =  EMPTY LIST   (default)
+[stats][xymasklist]           =  EMPTY LIST   (default)
+[stats][swtendency]           =           0   (default)
+[stats][whitelist]            =  EMPTY LIST   (default)
+[stats][blacklist]            =  EMPTY LIST   (default)
+[column][swcolumn]            =           0   (default)
+[dump][swdump]                =           1   
+[dump][sampletime]            =        1800
+[dump][dumplist]              =     u,v,w,b
+[cross][swcross]              =           0   
+[budget][swbudget]            =           0   
+[grid][swspatialorder]        =           2   
+[master][npx]                 =           8   
+[master][npy]                 =           8   
+[master][wallclocklimit]      =      1677.5   
+Allocating temporary field: tmp1
+Allocating temporary field: tmp2
+Allocating temporary field: tmp3
+Allocating temporary field: tmp4
+[boundary][mbcbot]            =      noslip
+[boundary][mbctop]            =    freeslip
+[boundary][ubot]              =           0   (default)
+[boundary][utop]              =           0   (default)
+[boundary][vbot]              =           0   (default)
+[boundary][vtop]              =           0   (default)
+[boundary][sbcbot][b]         =        flux
+[boundary][sbctop][b]         =     neumann
+[boundary][sbot][b]           = -1.1237e-07
+[boundary][stop][b]           =           0
+[boundary][sbot_2d_list]      =  EMPTY LIST   (default)
+[boundary][scalar_outflow]    =  EMPTY LIST   (default)
+[boundary][swconstantz0]      =           1   (default)
+[boundary][swcharnock]        =           0   (default)
+[boundary][z0m]               =       1e-05
+[boundary][z0h]               =       1e-05
+[decay][swdecay][b]           =           0   (default)
+Loading "grid.0000000" ... OK
+[grid][swtimedep]             =           0   (default)
+Loading "fftwplan.0000000" ... OK
+Loading "time.0000000" ... OK
+Loading "b.0000000" ... OK
+Loading "u.0000000" ... OK
+Loading "v.0000000" ... OK
+Loading "w.0000000" ... OK
+Loading "dudz_mo.0000000" ... OK
+Loading "dvdz_mo.0000000" ... OK
+Loading "dbdz_mo.0000000" ... OK
+Loading "b_gradbot.0000000" ... OK
+[boundary][swtimedep]         =           0   (default)
+[boundary][timedeplist]       =  EMPTY LIST   (default)
+[boundary][swtimedep_sbot_2d] =           0   (default)
+[boundary][swtimedep_outflow] =           0   (default)
+Retrieving from NetCDF: u
+Retrieving from NetCDF: v
+Retrieving from NetCDF: b
+Retrieving from NetCDF: u_geo
+Retrieving from NetCDF: v_geo
+WARNING: [cross][crosslist] is not used!
+WARNING: [cross][sampletime] is not used!
+WARNING: [cross][xy] is not used!
+WARNING: [cross][xz] is not used!
+WARNING: [grid][swbasestate] is not used!
+Starting time integration
+Saving field dumps for time 0.000000
+u.0000000 already exists
+v.0000000 already exists
+w.0000000 already exists
+b.0000000 already exists
+Saving statistics for time 0.000000
+Saving "time.0018000" ... OK
+Saving "b.0018000" ... OK
+Saving "u.0018000" ... OK
+Saving "v.0018000" ... OK
+Saving "w.0018000" ... OK
+Saving "dudz_mo.0018000" ... OK
+Saving "dvdz_mo.0018000" ... OK
+Saving "dbdz_mo.0018000" ... OK
+Saving "b_gradbot.0018000" ... OK
+Saving field dumps for time 1800.000000
+u.0018000 already exists
+v.0018000 already exists
+w.0018000 already exists
+b.0018000 already exists
+Saving statistics for time 1800.000000
+Saving "time.0036000" ... OK
+Saving "b.0036000" ... OK
+Saving "u.0036000" ... OK
+Saving "v.0036000" ... OK
+Saving "w.0036000" ... OK
+Saving "dudz_mo.0036000" ... OK
+Saving "dvdz_mo.0036000" ... OK
+Saving "dbdz_mo.0036000" ... OK
+Saving "b_gradbot.0036000" ... OK
+Saving field dumps for time 3600.000000
+u.0036000 already exists
+v.0036000 already exists
+w.0036000 already exists
+b.0036000 already exists
+Saving statistics for time 3600.000000
+Saving "time.0054000" ... OK
+Saving "b.0054000" ... OK
+Saving "u.0054000" ... OK
+Saving "v.0054000" ... OK
+Saving "w.0054000" ... OK
+Saving "dudz_mo.0054000" ... OK
+Saving "dvdz_mo.0054000" ... OK
+Saving "dbdz_mo.0054000" ... OK
+Saving "b_gradbot.0054000" ... OK
+Saving field dumps for time 5400.000000
+u.0054000 already exists
+v.0054000 already exists
+w.0054000 already exists
+b.0054000 already exists
+Saving statistics for time 5400.000000
+Saving "time.0072000" ... OK
+Saving "b.0072000" ... OK
+Saving "u.0072000" ... OK
+Saving "v.0072000" ... OK
+Saving "w.0072000" ... OK
+Saving "dudz_mo.0072000" ... OK
+Saving "dvdz_mo.0072000" ... OK
+Saving "dbdz_mo.0072000" ... OK
+Saving "b_gradbot.0072000" ... OK
+Saving field dumps for time 7200.000000
+u.0072000 already exists
+v.0072000 already exists
+w.0072000 already exists
+b.0072000 already exists
+Saving statistics for time 7200.000000
+Saving "time.0090000" ... OK
+Saving "b.0090000" ... OK
+Saving "u.0090000" ... OK
+Saving "v.0090000" ... OK
+Saving "w.0090000" ... OK
+Saving "dudz_mo.0090000" ... OK
+Saving "dvdz_mo.0090000" ... OK
+Saving "dbdz_mo.0090000" ... OK
+Saving "b_gradbot.0090000" ... OK
+Saving field dumps for time 9000.000000
+u.0090000 already exists
+v.0090000 already exists
+w.0090000 already exists
+b.0090000 already exists
+Saving statistics for time 9000.000000
+Saving "time.0108000" ... OK
+Saving "b.0108000" ... OK
+Saving "u.0108000" ... OK
+Saving "v.0108000" ... OK
+Saving "w.0108000" ... OK
+Saving "dudz_mo.0108000" ... OK
+Saving "dvdz_mo.0108000" ... OK
+Saving "dbdz_mo.0108000" ... OK
+Saving "b_gradbot.0108000" ... OK
+Saving field dumps for time 10800.000000
+u.0108000 already exists
+v.0108000 already exists
+w.0108000 already exists
+b.0108000 already exists
+Saving statistics for time 10800.000000
+Saving "time.0126000" ... OK
+Saving "b.0126000" ... OK
+Saving "u.0126000" ... OK
+Saving "v.0126000" ... OK
+Saving "w.0126000" ... OK
+Saving "dudz_mo.0126000" ... OK
+Saving "dvdz_mo.0126000" ... OK
+Saving "dbdz_mo.0126000" ... OK
+Saving "b_gradbot.0126000" ... OK
+Saving field dumps for time 12600.000000
+u.0126000 already exists
+v.0126000 already exists
+w.0126000 already exists
+b.0126000 already exists
+Saving statistics for time 12600.000000
+Saving "time.0144000" ... OK
+Saving "b.0144000" ... OK
+Saving "u.0144000" ... OK
+Saving "v.0144000" ... OK
+Saving "w.0144000" ... OK
+Saving "dudz_mo.0144000" ... OK
+Saving "dvdz_mo.0144000" ... OK
+Saving "dbdz_mo.0144000" ... OK
+Saving "b_gradbot.0144000" ... OK
+Saving field dumps for time 14400.000000
+u.0144000 already exists
+v.0144000 already exists
+w.0144000 already exists
+b.0144000 already exists
+Saving statistics for time 14400.000000
+Saving "time.0162000" ... OK
+Saving "b.0162000" ... OK
+Saving "u.0162000" ... OK
+Saving "v.0162000" ... OK
+Saving "w.0162000" ... OK
+Saving "dudz_mo.0162000" ... OK
+Saving "dvdz_mo.0162000" ... OK
+Saving "dbdz_mo.0162000" ... OK
+Saving "b_gradbot.0162000" ... OK
+Saving field dumps for time 16200.000000
+u.0162000 already exists
+v.0162000 already exists
+w.0162000 already exists
+b.0162000 already exists
+Saving statistics for time 16200.000000
+Saving "time.0180000" ... OK
+Saving "b.0180000" ... OK
+Saving "u.0180000" ... OK
+Saving "v.0180000" ... OK
+Saving "w.0180000" ... OK
+Saving "dudz_mo.0180000" ... OK
+Saving "dvdz_mo.0180000" ... OK
+Saving "dbdz_mo.0180000" ... OK
+Saving "b_gradbot.0180000" ... OK
+Saving field dumps for time 18000.000000
+u.0180000 already exists
+v.0180000 already exists
+w.0180000 already exists
+b.0180000 already exists
+Saving statistics for time 18000.000000
+Saving "time.0198000" ... OK
+Saving "b.0198000" ... OK
+Saving "u.0198000" ... OK
+Saving "v.0198000" ... OK
+Saving "w.0198000" ... OK
+Saving "dudz_mo.0198000" ... OK
+Saving "dvdz_mo.0198000" ... OK
+Saving "dbdz_mo.0198000" ... OK
+Saving "b_gradbot.0198000" ... OK
+Saving field dumps for time 19800.000000
+u.0198000 already exists
+v.0198000 already exists
+w.0198000 already exists
+b.0198000 already exists
+Saving statistics for time 19800.000000
+Saving "time.0216000" ... OK
+Saving "b.0216000" ... OK
+Saving "u.0216000" ... OK
+Saving "v.0216000" ... OK
+Saving "w.0216000" ... OK
+Saving "dudz_mo.0216000" ... OK
+Saving "dvdz_mo.0216000" ... OK
+Saving "dbdz_mo.0216000" ... OK
+Saving "b_gradbot.0216000" ... OK
+Saving field dumps for time 21600.000000
+u.0216000 already exists
+v.0216000 already exists
+w.0216000 already exists
+b.0216000 already exists
+Saving statistics for time 21600.000000
+Finished run on 64 processes
